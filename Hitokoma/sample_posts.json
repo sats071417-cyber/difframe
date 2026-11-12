@@ -1,0 +1,71 @@
+{
+  "_note": "デモ用のサンプル投稿です。Devpostとデモ動画では『サンプルの投稿』と明記します。",
+  "posts": [
+    {
+      "id": "demo-001",
+      "isDemo": true,
+      "prompt": "赤いもの",
+      "caption": "信号待ちの消防車",
+      "city": "Tokyo, Japan",
+      "latitude": 35.6812,
+      "longitude": 139.7671,
+      "photo": "demo-001.jpg",
+      "postedAt": "2026-11-09T08:12:00+09:00"
+    },
+    {
+      "id": "demo-002",
+      "isDemo": true,
+      "prompt": "時計",
+      "caption": "朝の駅前の時計",
+      "city": "Vancouver, Canada",
+      "latitude": 49.2827,
+      "longitude": -123.1207,
+      "photo": "demo-002.jpg",
+      "postedAt": "2026-11-09T07:45:00-08:00"
+    },
+    {
+      "id": "demo-003",
+      "isDemo": true,
+      "prompt": "椅子",
+      "caption": "ベンチの長い影",
+      "city": "Paris, France",
+      "latitude": 48.8566,
+      "longitude": 2.3522,
+      "photo": "demo-003.jpg",
+      "postedAt": "2026-11-09T10:30:00+01:00"
+    },
+    {
+      "id": "demo-004",
+      "isDemo": true,
+      "prompt": "緑のもの",
+      "caption": "公園の苔",
+      "city": "Nairobi, Kenya",
+      "latitude": -1.2921,
+      "longitude": 36.8219,
+      "photo": "demo-004.jpg",
+      "postedAt": "2026-11-09T11:05:00+03:00"
+    },
+    {
+      "id": "demo-005",
+      "isDemo": true,
+      "prompt": "階段",
+      "caption": "図書館の階段",
+      "city": "Seoul, South Korea",
+      "latitude": 37.5665,
+      "longitude": 126.9780,
+      "photo": "demo-005.jpg",
+      "postedAt": "2026-11-09T09:20:00+09:00"
+    },
+    {
+      "id": "demo-006",
+      "isDemo": true,
+      "prompt": "時計",
+      "caption": "ドーナツの穴から見た空",
+      "city": "Toronto, Canada",
+      "latitude": 43.6532,
+      "longitude": -79.3832,
+      "photo": "demo-006.jpg",
+      "postedAt": "2026-11-09T06:58:00-05:00"
+    }
+  ]
+}
