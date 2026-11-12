@@ -6,6 +6,16 @@ Every day, everyone gets the same prompt by notification (for example, "somethin
 
 Built for IceHacks 2026. iOS app written in SwiftUI (iOS 17+).
 
+## Screenshots
+
+| Today | Timeline (friends) | Timeline (everyone) |
+|---|---|---|
+| ![Today](docs/screenshots/today.png) | ![Friends](docs/screenshots/timeline-friends.png) | ![Everyone](docs/screenshots/timeline-everyone.png) |
+
+| World globe | Ranking | Profile |
+|---|---|---|
+| ![Globe](docs/screenshots/world-globe.png) | ![Ranking](docs/screenshots/world-ranking.png) | ![Profile](docs/screenshots/profile.png) |
+
 ## Features
 
 - Daily prompt by notification, with a timer that starts when it arrives
