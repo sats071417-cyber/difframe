@@ -389,6 +389,7 @@ final class PostStore: ObservableObject {
         saveReactions()
         saveComments()
         save()
+        Task { @MainActor in CloudSync.shared.upload(recordID: id) }
     }
 
     func toggleReaction(postID: String, emoji: String) {
@@ -425,6 +426,7 @@ final class PostStore: ObservableObject {
         records[index].publicCommentsOff = comments ? nil : true
         records[index].city = city
         save()
+        Task { @MainActor in CloudSync.shared.upload(recordID: id) }
     }
 
     /// 投稿の一言を、あとから書き換える（空にしたら、一言なし）
@@ -433,6 +435,7 @@ final class PostStore: ObservableObject {
         let trimmed = caption.trimmingCharacters(in: .whitespacesAndNewlines)
         records[index].caption = trimmed.isEmpty ? nil : trimmed
         save()
+        Task { @MainActor in CloudSync.shared.upload(recordID: id) }
     }
 
     /// みんな（公開）の投稿で、コメントを受け付けるか
@@ -440,6 +443,7 @@ final class PostStore: ObservableObject {
         guard let index = records.firstIndex(where: { $0.id == id }) else { return }
         records[index].publicCommentsOff = on ? nil : true
         save()
+        Task { @MainActor in CloudSync.shared.upload(recordID: id) }
     }
 
     func comments(for postID: String) -> [Comment] {

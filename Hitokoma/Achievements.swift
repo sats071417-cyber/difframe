@@ -345,7 +345,7 @@ enum Rank: Int, CaseIterable, Comparable {
 ///
 /// - お題に合う写真と確認できた投稿：1回 +10
 /// - 確認できなかった投稿：1回 +3
-/// - 早さボーナス（確認できた投稿のみ）：10秒以内 +10、30秒以内 +6、60秒以内 +3
+/// - 早さボーナス（1日1回）：通知から5分以内 +10、30分以内 +6、90分以内 +3
 /// - 連続ボーナス：連続2日目から、1日ごとに +1（最大 +5）
 struct MonthlyPoints {
     let month: String          // "2026-11"
@@ -416,7 +416,7 @@ struct MonthlyPoints {
         }
         for (dayKey, dayRecords) in Dictionary(grouping: postedInMonth, by: \.dayKey) {
             if let best = dayRecords.filter(counts).compactMap(\.elapsed).min() {
-                if best <= 10 { speed += 10 } else if best <= 30 { speed += 6 } else if best <= 60 { speed += 3 }
+                if best <= 5 * 60 { speed += 10 } else if best <= 30 * 60 { speed += 6 } else if best <= 90 * 60 { speed += 3 }
             }
             streak += min(10, max(0, (runPosition[dayKey] ?? 1) - 1))
         }
@@ -445,5 +445,66 @@ struct RankBadge: View {
         .padding(.horizontal, 7)
         .padding(.vertical, 3)
         .background(Capsule().fill(rank.color.opacity(0.18)))
+    }
+}
+
+/// ランクの一覧：必要なポイントと、いまのランク
+struct RankListSheet: View {
+    let points: Int
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 10) {
+                    let current = Rank.rank(forPoints: points)
+                    ForEach(Array(Rank.allCases.reversed()), id: \.self) { rank in
+                        let reached = points >= rank.threshold
+                        HStack(spacing: 14) {
+                            Image(systemName: rank.icon)
+                                .font(.title2)
+                                .foregroundStyle(rank.color)
+                                .frame(width: 44, height: 44)
+                                .background(Circle().fill(rank.color.opacity(0.18)))
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(rank.name).font(.headline.weight(.black))
+                                Text(LF("{n} pt〜", ["n": "\(rank.threshold)"]))
+                                    .font(.subheadline.monospacedDigit())
+                                    .foregroundStyle(Hi.dim)
+                            }
+                            Spacer()
+                            if rank == current {
+                                Text(L("いまのランク"))
+                                    .font(.caption.weight(.black))
+                                    .padding(.horizontal, 10).padding(.vertical, 5)
+                                    .background(Capsule().fill(Hi.neon))
+                                    .foregroundStyle(Hi.onNeon)
+                            } else if reached {
+                                Image(systemName: "checkmark.circle.fill").foregroundStyle(Hi.dim)
+                            }
+                        }
+                        .padding(14)
+                        .background(RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .fill(rank == current ? rank.color.opacity(0.22) : Hi.tile))
+                        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .stroke(rank == current ? rank.color : .clear, lineWidth: 2))
+                        .opacity(reached ? 1 : 0.65)
+                    }
+                    Text(LF("今月 {n} ポイント", ["n": "\(points)"]))
+                        .font(.caption).foregroundStyle(Hi.dim)
+                        .padding(.top, 6)
+                }
+                .padding(16)
+            }
+            .background(Color.black.ignoresSafeArea())
+            .navigationTitle(L("ランク一覧"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) { Button(L("閉じる")) { dismiss() } }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationBackground(.black)
+        .preferredColorScheme(.dark)
     }
 }

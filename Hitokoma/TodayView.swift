@@ -14,7 +14,9 @@ struct TodayView: View {
 
     var body: some View {
         VStack(spacing: 10) {
-            ScreenHeader(title: L("Difframe")) { streakBadge }
+            ScreenHeader(title: L("Difframe")) {
+                HStack(spacing: 12) { streakBadge; NotificationBell() }
+            }
             let posted = todaysPhotos
             let open = store.nextOpenRecord(day: todayKey)
             if store.isPromptHidden() {
@@ -81,6 +83,8 @@ struct TodayView: View {
         return Label(LF("{n}日連続", ["n": "\(days)"]), systemImage: "flame.fill")
             .font(.headline.weight(.black))
             .foregroundStyle(days > 0 ? Color.orange : Hi.dim)
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
             .accessibilityLabel(LF("連続 {n} 日", ["n": "\(days)"]))
     }
 
@@ -375,7 +379,7 @@ struct DualPhotoView: View {
                     Image(uiImage: small)
                         .resizable()
                         .scaledToFill()
-                        .frame(width: side, height: side)
+                        .frame(width: side, height: side / PhotoShape.ratio)
                         .clipShape(RoundedRectangle(cornerRadius: side * 0.18, style: .continuous))
                         .overlay(RoundedRectangle(cornerRadius: side * 0.18, style: .continuous)
                             .stroke(Color.black.opacity(0.7), lineWidth: 2))

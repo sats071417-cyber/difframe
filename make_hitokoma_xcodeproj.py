@@ -30,7 +30,7 @@ APP_SOURCES = ["HitokomaApp.swift", "ContentView.swift", "TodayView.swift",
                "FriendCode.swift", "PromptArt.swift", "PromptVerifier.swift", "ProfileView.swift",
                "Achievements.swift", "Theme.swift", "WorldView.swift", "WorldSamples.swift",
                "CaptureFlow.swift", "WidgetBridge.swift", "OnboardingView.swift", "PromptCatalog.swift",
-               "Account.swift", "SignUpView.swift", "ContactsView.swift", "Localization.swift", "LocalizedEN.swift", "LocalizedZH.swift", "LocalizedKO.swift", "LocalizedES.swift", "TimelineScreen.swift", "Social.swift", "CityLocator.swift", "GlobeView.swift", "SettingsView.swift", "ShareCard.swift"]
+               "Account.swift", "SignUpView.swift", "ContactsView.swift", "Localization.swift", "LocalizedEN.swift", "LocalizedZH.swift", "LocalizedKO.swift", "LocalizedES.swift", "TimelineScreen.swift", "Social.swift", "CityLocator.swift", "GlobeView.swift", "SettingsView.swift", "ShareCard.swift", "CloudConfig.swift", "Cloud.swift", "CloudViews.swift", "FriendList.swift", "CloudInbox.swift", "InboxViews.swift", "ChatMedia.swift", "BackgroundSync.swift"]
 def ftype(name):
     return 'folder.assetcatalog' if name.endswith('.xcassets') else 'text.json'
 
@@ -95,7 +95,9 @@ def main() -> None:
                "\t<key>CFBundleURLTypes</key>\n\t<array>\n\t\t<dict>\n"
                "\t\t\t<key>CFBundleURLName</key>\n\t\t\t<string>" + bundle_id + "</string>\n"
                "\t\t\t<key>CFBundleURLSchemes</key>\n\t\t\t<array>\n\t\t\t\t<string>hitokoma</string>\n\t\t\t</array>\n"
-               "\t\t</dict>\n\t</array>\n" + PLIST_TAIL)
+               "\t\t</dict>\n\t</array>\n"
+               "\t<key>UIBackgroundModes</key>\n\t<array>\n\t\t<string>fetch</string>\n\t</array>\n"
+               "\t<key>BGTaskSchedulerPermittedIdentifiers</key>\n\t<array>\n\t\t<string>" + bundle_id + ".refresh</string>\n\t</array>\n" + PLIST_TAIL)
     write_text(os.path.join(dirs[WIDGET], "Info.plist"),
                PLIST_HEAD +
                "\t<key>NSExtension</key>\n\t<dict>\n"
@@ -259,6 +261,7 @@ def main() -> None:
         f"INFOPLIST_KEY_NSContactsUsageDescription = \"{CONTACTS_REASON}\"; "
         f"INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = \"{LOCATION_REASON}\"; "
         f"INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = \"自分の投稿を、写真アプリに保存するために使います。\"; "
+        f"INFOPLIST_KEY_NSMicrophoneUsageDescription = \"ボイスメッセージを録音するために使います。\"; "
         "LD_RUNPATH_SEARCH_PATHS = (\"$(inherited)\", \"@executable_path/Frameworks\"); "
         f"PRODUCT_BUNDLE_IDENTIFIER = {bundle_id}; PRODUCT_NAME = \"$(TARGET_NAME)\"; "
         + (f"CODE_SIGN_ENTITLEMENTS = {APP}/{APP}.entitlements; " if use_group else ""))

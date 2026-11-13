@@ -1,6 +1,11 @@
 import SwiftUI
 
 /// アプリ全体の色
+/// 写真の縦横の比（横：縦 = 3：4。iPhone のカメラの 4:3 を縦にしたもの）
+enum PhotoShape {
+    static let ratio: CGFloat = 3.0 / 4.0
+}
+
 enum Hi {
     static let neon = Color(red: 0.894, green: 1.0, blue: 0.102)
     static let onNeon = Color(red: 0.118, green: 0.137, blue: 0.0)
@@ -180,7 +185,10 @@ struct ScreenHeader<Trailing: View>: View {
             Text(title)
                 .font(.system(size: 30, weight: .black))
                 .foregroundStyle(.white)
-            Spacer()
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+                .layoutPriority(1)     // タイトルを先に確保して、一行に保つ
+            Spacer(minLength: 6)
             trailing
         }
         .frame(minHeight: 44)

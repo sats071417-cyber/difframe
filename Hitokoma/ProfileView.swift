@@ -14,6 +14,9 @@ struct ProfileView: View {
     @State private var section: ProfileSection = .rank
     @State private var scrollTarget: String? = nil
     @State private var showSettings = false
+    @State private var showRanks = false
+    @State private var showFriends = false
+    @ObservedObject private var cloud = CloudSync.shared
     @State private var editingHandle = false
     @State private var editingName = false
     @State private var draftName = ""
@@ -58,6 +61,8 @@ struct ProfileView: View {
         ScrollView {
             VStack(spacing: 14) {
                 ScreenHeader(title: L("プロフィール")) {
+                    HStack(spacing: 10) {
+                    NotificationBell()
                     Button {
                         showSettings = true
                     } label: {
@@ -68,6 +73,7 @@ struct ProfileView: View {
                             .background(Circle().fill(Hi.tile))
                     }
                     .accessibilityLabel(L("設定"))
+                    }
                 }
                 identity
                 statTiles
@@ -188,7 +194,28 @@ struct ProfileView: View {
                 }
                 .buttonStyle(TileButtonStyle())
             }
+            // 友達（Instagram のように、人数を見せて、押すと一覧と追加）
+            Button {
+                showFriends = true
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "person.2.fill").foregroundStyle(Hi.neon)
+                    Text(LF("友達 {n}人", ["n": "\(friendTotal)"])).font(.subheadline.weight(.black))
+                    Spacer()
+                    Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(Hi.dim)
+                }
+                .foregroundStyle(.white)
+                .contentShape(Rectangle())
+                .hiTile(cornerRadius: 22)
+            }
+            .buttonStyle(.plain)
+            .sheet(isPresented: $showFriends) { FriendListSheet() }
         }
+    }
+
+    /// 友達の人数（サーバーにつながっているときは、本当の友達だけ）
+    private var friendTotal: Int {
+        cloud.isOn ? cloud.friends.count : MyProfile.friendCount(friendList)
     }
 
     private enum ProfileSection: Hashable { case rank, trophies, calendar }
@@ -218,8 +245,9 @@ struct ProfileView: View {
         return ZStack {
             GlowBackground(palette: .forRank(m.rank), focus: UnitPoint(x: 0.5, y: 0.5))
             VStack(spacing: 6) {
-                HStack {
+                HStack(spacing: 6) {
                     Text(m.rank.name).font(.title3.weight(.black))
+                    Image(systemName: "chevron.right.circle.fill").font(.subheadline).opacity(0.8)
                     Spacer()
                     Text(monthTitle(m.month)).font(.caption.weight(.bold))
                 }
@@ -246,7 +274,7 @@ struct ProfileView: View {
                 // ポイントのルール（一行ずつ）
                 VStack(alignment: .leading, spacing: 3) {
                     Text(L("投稿：1枚 10pt（お題に合う写真も、確認できないお題の写真も）。違うと言われた写真は 3pt"))
-                    Text(L("早さ：届いてから10秒以内 10pt、30秒以内 6pt、60秒以内 3pt（1日1回）"))
+                    Text(L("早さ：届いてから5分以内 10pt、30分以内 6pt、90分以内 3pt（1日1回）"))
                     Text(L("連続：続けた日数に応じて、1日 最大10pt"))
                     Text(L("ランキングに入るのは、お題に合うと確認できた写真だけです"))
                 }
@@ -258,6 +286,13 @@ struct ProfileView: View {
             .padding(16)
         }
         .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .onTapGesture { showRanks = true }
+        .accessibilityAddTraits(.isButton)
+        .accessibilityHint(L("ランク一覧"))
+        .sheet(isPresented: $showRanks) {
+            RankListSheet(points: m.total)
+        }
     }
 
     private func monthTitle(_ month: String) -> String {
@@ -575,7 +610,7 @@ struct PhotoViewer: View {
             Spacer(minLength: 0)
             if let file = record.postedPhotoFile, let image = store.image(for: file) {
                 DualPhotoView(main: image, inset: record.frontPhotoFile.flatMap { store.image(for: $0) })
-                    .aspectRatio(1, contentMode: .fit)
+                    .aspectRatio(PhotoShape.ratio, contentMode: .fit)
                     .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
             }
             HStack(alignment: .firstTextBaseline) {

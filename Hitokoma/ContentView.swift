@@ -7,6 +7,7 @@ struct ContentView: View {
     @State private var visited: Set<AppTab> = [.today]   // 開いた画面だけ作る（地図を最初から読み込まない）
     @State private var showCapture = false
     @State private var showFull = false
+    @State private var viewingCode: CodeTarget? = nil   // リンクやQRで開いた、友達コードの持ち主
     @AppStorage(AppLanguage.storageKey) private var languageRaw = ""   // 空 = iPhone の言語に合わせる   // 言語を変えると、画面全体を作り直す
     @AppStorage("onboarded") private var onboarded = false   // 初回の説明を見たか
     @AppStorage(Account.doneKey) private var signUpDone = false   // 電話番号の登録画面を終えたか（「あとで」も含む）
@@ -50,6 +51,7 @@ struct ContentView: View {
                 }
             }
         }
+        .sheet(item: $viewingCode) { PersonProfileSheet(code: $0.id, canAdd: true) }
         .alert(L("今日のお題は、通知で届きます"), isPresented: $showHidden) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -79,6 +81,11 @@ struct ContentView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { refreshToday() }
+            if phase == .background {
+                // 閉じるときに今の通知を「見た」ことにし、次の確認を頼む
+                BackgroundSync.markAllSeen()
+                BackgroundSync.schedule()
+            }
         }
     }
 
@@ -107,20 +114,18 @@ struct ContentView: View {
         case "capture": capture()   // ウィジェットの「撮る」から
         case "world": selection = .world
         case "add":
+            // リンクやQRで開いたら、その人のプロフィールを見せる（追加は、そこから）
             guard let id = FriendCode.parse(url.absoluteString), id != FriendCode.myID else { return }
-            var list = (UserDefaults.standard.string(forKey: "friendList") ?? MyProfile.defaultFriends)
-                .split(separator: ",").map(String.init)
-            if !list.contains(id) {
-                list.append(id)
-                UserDefaults.standard.set(list.joined(separator: ","), forKey: "friendList")
-            }
-            selection = .friends
+            viewingCode = CodeTarget(id: id)
         default: break
         }
     }
 
     private func refreshToday() {
+        Task { await CloudSync.shared.refresh() }
         store.ensureToday()
+        // ウィジェットの言語とお題の文字を、いまの言語に合わせ直す（言語を変えた直後も含む）
+        WidgetBridge.push(store)
         for slot in PromptSlot.active { store.reveal(id: "\(todayKey)-\(slot.rawValue)") }
     }
 }

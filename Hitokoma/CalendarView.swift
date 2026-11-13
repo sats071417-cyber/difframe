@@ -4,6 +4,7 @@ import SwiftUI
 /// 下の一覧は、過去のお題をいつでも開ける履歴。
 struct CalendarView: View {
     @EnvironmentObject private var store: PostStore
+    @ObservedObject private var cloud = CloudSync.shared
     @State private var month = Date()
     @State private var selectedKey: String? = nil
     @State private var viewerID: String? = nil               // 大きく見る写真
@@ -64,7 +65,7 @@ struct CalendarView: View {
                 }
                 .sheet(item: $commentTarget) { target in
                     CommentSheet(postID: target.id, owner: target.owner, caption: target.caption,
-                                 image: target.image, prompt: target.prompt)
+                                 image: target.image, prompt: target.prompt, cloudID: target.cloudID, ownRecordID: target.ownRecordID)
                         .environmentObject(store)
                 }
             header
@@ -162,7 +163,7 @@ struct CalendarView: View {
                             Image(uiImage: image)
                                 .resizable()
                                 .scaledToFill()
-                                .aspectRatio(1, contentMode: .fit)
+                                .aspectRatio(PhotoShape.ratio, contentMode: .fit)
                                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                         }
                         .buttonStyle(.plain)
@@ -171,12 +172,16 @@ struct CalendarView: View {
                             Text(caption).font(.subheadline)
                         }
                         // その投稿のコメント（全部見られる）
-                        let list = store.comments(for: record.id)
+                        let cloudID = cloud.cloudID(for: record.id)
+                        let list: [(id: String, text: String, date: Date)] = cloudID.map { id in
+                            (cloud.comments[id] ?? []).map { (id: $0.id, text: "\($0.name): \($0.text)", date: $0.date) }
+                        } ?? store.comments(for: record.id).map { (id: $0.id, text: $0.text, date: $0.date) }
                         if list.isEmpty {
                             Text(L("まだコメントはありません")).font(.caption).foregroundStyle(Hi.dim)
+                                .task { if let cloudID { await cloud.loadComments(postID: cloudID) } }
                         } else {
                             VStack(alignment: .leading, spacing: 6) {
-                                ForEach(list) { comment in
+                                ForEach(list, id: \.id) { comment in
                                     HStack(alignment: .firstTextBaseline, spacing: 6) {
                                         Text(comment.text).font(.subheadline)
                                         Spacer(minLength: 0)
@@ -186,7 +191,8 @@ struct CalendarView: View {
                             }
                         }
                         Button {
-                            commentTarget = CommentTarget(id: record.id, owner: L("あなた"), caption: record.caption, image: image)
+                            commentTarget = CommentTarget(id: record.id, owner: L("あなた"), caption: record.caption, image: image,
+                                                          cloudID: cloud.cloudID(for: record.id), ownRecordID: record.id)
                         } label: {
                             Label(L("コメントを書く"), systemImage: "bubble.left")
                                 .font(.subheadline.weight(.bold))

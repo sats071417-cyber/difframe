@@ -217,7 +217,7 @@ final class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelega
         (session.inputs.first as? AVCaptureDeviceInput)?.device.position ?? .unspecified
     }
 
-    /// いまのカメラで1枚撮る（正方形に整えて返す）
+    /// いまのカメラで1枚撮る（3:4 に整えて返す）
     func capture(useFlash: Bool, completion: @escaping (UIImage?) -> Void) {
         guard !isCapturing else { return }
         isCapturing = true
@@ -257,7 +257,7 @@ final class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelega
     func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
         var result: UIImage?
         if error == nil, let data = photo.fileDataRepresentation(), let image = UIImage(data: data) {
-            result = CameraModel.squared(image)
+            result = CameraModel.cropped(image)
         }
         DispatchQueue.main.async {
             self.isCapturing = false
@@ -267,18 +267,20 @@ final class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelega
         }
     }
 
-    /// 向きを直して、中央の正方形に切り抜く（大きすぎる写真は小さくする）
-    static func squared(_ image: UIImage, maxSide: CGFloat = 1600) -> UIImage {
+    /// 向きを直して、中央を 3:4（縦長）に切り抜く（大きすぎる写真は、長い辺を maxSide に小さくする）
+    static func cropped(_ image: UIImage, maxSide: CGFloat = 2000) -> UIImage {
         let width = image.size.width, height = image.size.height
-        let side = min(width, height)
-        let outSide = min(side, maxSide)
-        let scale = outSide / side
+        let ratio = PhotoShape.ratio
+        // 元の写真から取れる、いちばん大きい 3:4
+        let cropW = min(width, height * ratio)
+        let cropH = cropW / ratio
+        let scale = min(1, maxSide / cropH)
+        let outSize = CGSize(width: (cropW * scale).rounded(), height: (cropH * scale).rounded())
         let format = UIGraphicsImageRendererFormat.default()
         format.scale = 1
         format.opaque = true
-        let renderer = UIGraphicsImageRenderer(size: CGSize(width: outSide, height: outSide), format: format)
-        return renderer.image { _ in
-            image.draw(in: CGRect(x: -(width - side) / 2 * scale, y: -(height - side) / 2 * scale,
+        return UIGraphicsImageRenderer(size: outSize, format: format).image { _ in
+            image.draw(in: CGRect(x: -(width - cropW) / 2 * scale, y: -(height - cropH) / 2 * scale,
                                   width: width * scale, height: height * scale))
         }
     }
@@ -307,7 +309,7 @@ final class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelega
 
     #if targetEnvironment(simulator)
     private static func testImage(front: Bool) -> UIImage {
-        let size = CGSize(width: 900, height: 900)
+        let size = CGSize(width: 900, height: 1200)
         let format = UIGraphicsImageRendererFormat.default()
         format.scale = 1
         return UIGraphicsImageRenderer(size: size, format: format).image { context in
@@ -355,6 +357,8 @@ struct CameraPreview: UIViewRepresentable {
 /// 外カメラで撮ったあとに内カメラのカウントダウンが始まり、2枚を1枚にして確認画面へ進む。
 struct CaptureFlow: View {
     private enum Stage: Equatable { case camera, review, done }
+    /// DM から開いたとき：投稿の代わりに、撮った写真をその会話に送る（投稿・フィードには出ない）
+    var directSend: ((UIImage) -> Void)? = nil
 
     @EnvironmentObject private var store: PostStore
     @Environment(\.dismiss) private var dismiss
@@ -461,7 +465,7 @@ struct CaptureFlow: View {
                             CameraPreview(session: camera.session)
                         }
                     }
-                    .frame(width: side, height: side)
+                    .frame(width: side, height: side / PhotoShape.ratio)
                     .clipped()
                     .contentShape(Rectangle())
                     // 純正カメラと同じく、2回タップで前後を切り替える
@@ -502,9 +506,9 @@ struct CaptureFlow: View {
                             .transition(.scale(scale: 0.6, anchor: .topTrailing).combined(with: .opacity))
                     }
                 }
-                .frame(width: side, height: side)
+                .frame(width: side, height: side / PhotoShape.ratio)
             }
-            .aspectRatio(1, contentMode: .fit)
+            .aspectRatio(PhotoShape.ratio, contentMode: .fit)
             .animation(.spring(response: 0.35, dampingFraction: 0.8), value: isShootingFront)
 
             Spacer(minLength: 0)
@@ -556,7 +560,7 @@ struct CaptureFlow: View {
                     .shadow(radius: 6)
             }
         }
-        .frame(width: side, height: side)
+        .frame(width: side, height: side / PhotoShape.ratio)
         .clipShape(RoundedRectangle(cornerRadius: side * 0.16, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: side * 0.16, style: .continuous).stroke(Color.white, lineWidth: 2))
         .accessibilityLabel(L("内カメラ"))
@@ -804,7 +808,7 @@ struct CaptureFlow: View {
 
             if let photo {
                 DualPhotoView(main: photo, inset: frontShot)
-                    .aspectRatio(1, contentMode: .fit)
+                    .aspectRatio(PhotoShape.ratio, contentMode: .fit)
                     .frame(maxWidth: .infinity)
                     .clipped()
             }
@@ -817,11 +821,16 @@ struct CaptureFlow: View {
 
             Spacer(minLength: 0)
 
-            // 投稿する → どこに送るかを選ぶ
+            // 投稿する → どこに送るかを選ぶ（DM から開いたときは、そのまま会話に送る）
             Button {
-                showShare = true
+                if let directSend, let photo {
+                    directSend(photo)
+                    dismiss()
+                } else {
+                    showShare = true
+                }
             } label: {
-                if checking { ProgressView().tint(Hi.onNeon) } else { Text(L("投稿する")) }
+                if checking { ProgressView().tint(Hi.onNeon) } else { Text(directSend == nil ? L("投稿する") : L("送る")) }
             }
             .buttonStyle(NeonButtonStyle())
             .disabled(checking)

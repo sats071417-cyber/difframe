@@ -11,6 +11,7 @@ struct WorldView: View {
     var isActive = true
 
     @EnvironmentObject private var store: PostStore
+    @ObservedObject private var cloud = CloudSync.shared
     @AppStorage("myHandle") private var myHandle: String = ""
     @AppStorage("friendList") private var friendList: String = MyProfile.defaultFriends
     @State private var mode: Mode = .now
@@ -39,7 +40,7 @@ struct WorldView: View {
             timeline
                 .sheet(item: $commentTarget) { target in
                     CommentSheet(postID: target.id, owner: target.owner, caption: target.caption,
-                                 image: target.image, prompt: target.prompt)
+                                 image: target.image, prompt: target.prompt, cloudID: target.cloudID, ownRecordID: target.ownRecordID)
                         .environmentObject(store)
                 }
         } else {
@@ -215,8 +216,18 @@ struct WorldView: View {
                     }
                 }
                 // 自分の投稿（みんなにも出る。コメントを受け付けるかは、自分で選べる）
-                ForEach(myPublicPosts, id: \.record.id) { item in
-                    myPublicCard(item.record, image: item.image)
+                if !myPublicPosts.isEmpty { myStrip }
+                // サーバーから届いた、世界の人の本物の投稿
+                ForEach(cloud.publicPosts) { post in
+                    CloudPostCard(post: post) { commentTarget = $0 }
+                }
+                if cloud.isOn {
+                    HStack {
+                        Text(L("ここから下はサンプルです")).font(.caption.weight(.black))
+                        Spacer()
+                    }
+                    .foregroundStyle(Hi.dim)
+                    .padding(.top, 8)
                 }
                 ForEach(sorted) { sample in
                     feedCard(sample)
@@ -229,6 +240,7 @@ struct WorldView: View {
             }
             .padding(.horizontal, 16)
         }
+        .refreshable { await cloud.refresh(force: true) }
     }
 
     private func pickupCard(_ pickup: Pickup) -> some View {
@@ -306,7 +318,7 @@ struct WorldView: View {
                     .foregroundStyle(light.textColor)
                     .padding(16)
                 }
-                .aspectRatio(1, contentMode: .fit)
+                .aspectRatio(PhotoShape.ratio, contentMode: .fit)
                 .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
                 .contentShape(Rectangle())
                 .socialPhoto(postID: reactionID, allowComments: !sample.commentsOff) {
@@ -332,10 +344,41 @@ struct WorldView: View {
             .compactMap { r in r.postedPhotoFile.flatMap { store.image(for: $0) }.map { (r, $0) } }
     }
 
+    /// 自分の今日の投稿は、みんなの画面の上に小さく一列にまとめる（押すと、写真とコメントを開く）
+    private var myStrip: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 14) {
+                ForEach(myPublicPosts, id: \.record.id) { item in
+                    Button {
+                        commentTarget = CommentTarget(id: item.record.id, owner: L("あなた"), caption: item.record.caption,
+                                                      image: item.image, cloudID: cloud.cloudID(for: item.record.id), ownRecordID: item.record.id)
+                    } label: {
+                        VStack(spacing: 6) {
+                            Image(uiImage: item.image)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 66, height: 66)
+                                .clipShape(Circle())
+                                .overlay(Circle().stroke(Hi.neon, lineWidth: 2.5))
+                            Text(L("自分")).font(.caption.weight(.black)).foregroundStyle(.white)
+                            if let at = item.record.postedAt {
+                                Text(at.formatted(date: .omitted, time: .shortened))
+                                    .font(.caption2).foregroundStyle(Hi.dim)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 16)
+        }
+    }
+
     private func myPublicCard(_ record: PromptRecord, image: UIImage) -> some View {
         let commentsOn = record.publicCommentsOff != true
         let open = {
-            commentTarget = CommentTarget(id: record.id, owner: L("あなた"), caption: record.caption, image: image)
+            commentTarget = CommentTarget(id: record.id, owner: L("あなた"), caption: record.caption, image: image,
+                                          cloudID: cloud.cloudID(for: record.id), ownRecordID: record.id)
         }
         return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
@@ -368,13 +411,13 @@ struct WorldView: View {
                 DeletePostMenu(recordID: record.id)
             }
             DualPhotoView(main: image, inset: record.frontPhotoFile.flatMap { store.image(for: $0) })
-                .aspectRatio(1, contentMode: .fit)
+                .aspectRatio(PhotoShape.ratio, contentMode: .fit)
                 .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
                 .socialPhoto(postID: record.id, canReact: false, allowComments: commentsOn, onComment: open)
             if let caption = record.caption, !caption.isEmpty {
                 Text(caption).font(.subheadline)
             }
-            CommentLine(postID: record.id, allowComments: commentsOn, onComment: open)
+            CommentLine(postID: record.id, allowComments: commentsOn, cloudID: cloud.cloudID(for: record.id), onComment: open)
         }
     }
 

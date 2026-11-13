@@ -6,6 +6,12 @@ struct SettingsView: View {
     @AppStorage(AppLanguage.storageKey) private var languageRaw = ""
     @AppStorage(Account.phoneKey) private var phone: String = ""
     @AppStorage(NotificationScheduler.zoneKey) private var zoneID: String = ""
+    @AppStorage("mute.comment") private var muteComment = false
+    @AppStorage("mute.like") private var muteLike = false
+    @AppStorage("mute.friendRequest") private var muteRequest = false
+    @AppStorage("mute.friendAccepted") private var muteAccepted = false
+    @AppStorage("mute.friendPost") private var mutePost = false
+    @AppStorage("mute.message") private var muteMessage = false
     // 撮影
     @AppStorage("dualCamera") private var dualCamera = false
     // 投稿の初期設定（次の投稿の、最初の選択になる）
@@ -21,16 +27,27 @@ struct SettingsView: View {
 
     private var zoneLabel: String {
         if zoneID.isEmpty { return L("iPhone の時間に合わせる") }
-        return TimeZone(identifier: zoneID)?.localizedName(for: .generic, locale: .current) ?? zoneID
+        return Self.regionName(forZone: zoneID)
     }
 
-    /// 選べる地域（代表的なもの）
-    private static let zones: [String] = [
-        "Asia/Tokyo", "Asia/Seoul", "Asia/Shanghai", "Asia/Singapore", "Asia/Kolkata",
-        "Europe/London", "Europe/Paris", "Africa/Nairobi",
-        "America/New_York", "America/Los_Angeles", "America/Mexico_City", "America/Sao_Paulo",
-        "Australia/Sydney",
+    /// 選べるのは、世界の4つの地域。それぞれの代表の時間帯で、通知の時刻を決める
+    private static let zones: [(id: String, region: Int)] = [
+        ("Asia/Tokyo", 0), ("Asia/Kolkata", 1), ("Europe/Paris", 2), ("America/New_York", 3),
     ]
+
+    /// 時間帯の名前を、4つの地域のどれかで言う（前の版で選んだ都市の時間帯も、地域に直す）
+    private static func regionName(forZone id: String) -> String {
+        guard let zone = TimeZone(identifier: id) else { return id }
+        return L(PostStore.regionShortNames[PostStore.regionIndex(forOffset: zone.secondsFromGMT())])
+    }
+
+    /// 前の版で選んだ時間帯が4つの代表と違うときは、同じ地域の代表に直す
+    private func normalizeZone() {
+        guard !zoneID.isEmpty, !Self.zones.contains(where: { $0.id == zoneID }),
+              let zone = TimeZone(identifier: zoneID) else { return }
+        let region = PostStore.regionIndex(forOffset: zone.secondsFromGMT())
+        if let match = Self.zones.first(where: { $0.region == region }) { zoneID = match.id }
+    }
 
     private var supportURL: URL? {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "-"
@@ -77,10 +94,11 @@ struct SettingsView: View {
                 Section {
                     Picker(L("通知の時間"), selection: $zoneID) {
                         Text(L("iPhone の時間に合わせる")).tag("")
-                        ForEach(Self.zones, id: \.self) { id in
-                            Text(TimeZone(identifier: id)?.localizedName(for: .generic, locale: .current) ?? id).tag(id)
+                        ForEach(Self.zones, id: \.id) { zone in
+                            Text(L(PostStore.regionShortNames[zone.region])).tag(zone.id)
                         }
                     }
+                    .onAppear(perform: normalizeZone)
                     .onChange(of: zoneID) { _, id in
                         NotificationScheduler.changeZone(to: id)
                     }
@@ -113,11 +131,26 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    Toggle(L("コメント"), isOn: Binding(get: { !muteComment }, set: { muteComment = !$0 }))
+                    Toggle(L("いいね"), isOn: Binding(get: { !muteLike }, set: { muteLike = !$0 }))
+                    Toggle(L("友達リクエスト"), isOn: Binding(get: { !muteRequest }, set: { muteRequest = !$0 }))
+                    Toggle(L("友達になったお知らせ"), isOn: Binding(get: { !muteAccepted }, set: { muteAccepted = !$0 }))
+                    Toggle(L("友達の投稿"), isOn: Binding(get: { !mutePost }, set: { mutePost = !$0 }))
+                    Toggle(L("DM"), isOn: Binding(get: { !muteMessage }, set: { muteMessage = !$0 }))
+                } header: {
+                    Text(L("通知の種類"))
+                } footer: {
+                    Text(L("オフにした種類は、通知の一覧にも未読の数にも出なくなります。"))
+                }
+                .tint(Hi.neon)
+
+                Section {
                     if let url = supportURL {
                         Link(destination: url) {
                             Label(L("お問い合わせ"), systemImage: "envelope")
                         }
                     }
+                    CloudStatusRow()
                     HStack {
                         Text(L("バージョン"))
                         Spacer()

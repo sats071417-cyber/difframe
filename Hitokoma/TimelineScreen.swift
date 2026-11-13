@@ -10,6 +10,8 @@ struct TimelineScreen: View {
     var body: some View {
         VStack(spacing: 10) {
             ScreenHeader(title: L("タイムライン")) {
+                HStack(spacing: 10) {
+                NotificationBell()
                 Button {
                     showAdd = true
                 } label: {
@@ -20,6 +22,7 @@ struct TimelineScreen: View {
                         .background(Circle().fill(Hi.tile))
                 }
                 .accessibilityLabel(L("友達を追加"))
+                }
             }
             .padding(.horizontal, 16)
 

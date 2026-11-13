@@ -10,12 +10,9 @@ struct FriendsView: View {
     /// 友達を追加する画面を出すか（外から開けるように、外で持つ）
     @Binding var showAdd: Bool
     @EnvironmentObject private var store: PostStore
+    @ObservedObject private var cloud = CloudSync.shared
     @AppStorage("friendList") private var friendList: String = MyProfile.defaultFriends
     @State private var commentTarget: CommentTarget? = nil
-    @State private var newFriend = ""
-    @State private var showScanner = false
-    @State private var showContacts = false
-    @State private var message: String? = nil
 
     // サンプル投稿の持ち主（名前）と地域（グループ番号）
     private struct Sample: Identifiable {
@@ -80,11 +77,11 @@ struct FriendsView: View {
         }
         .background(Color.black.ignoresSafeArea())
         .sheet(isPresented: $showAdd) {
-            addSheet
+            AddFriendSheet(isPresented: $showAdd)
         }
         .sheet(item: $commentTarget) { target in
             CommentSheet(postID: target.id, owner: target.owner, caption: target.caption,
-                         image: target.image, prompt: target.prompt)
+                         image: target.image, prompt: target.prompt, cloudID: target.cloudID, ownRecordID: target.ownRecordID)
                 .environmentObject(store)
         }
     }
@@ -122,10 +119,24 @@ struct FriendsView: View {
         ScrollView {
             LazyVStack(spacing: 28) {
                 // 自分の今日の投稿を、いちばん上に
-                ForEach(myPosts, id: \.record.id) { item in
-                    myCard(item.record, image: item.image)
-                }
-                if visible.isEmpty {
+                if !myPosts.isEmpty { myStrip }
+                if cloud.isOn {
+                    // サーバーにつながっているとき：本物の友達の投稿だけを出す（サンプルは出さない）
+                    if cloud.friendPosts.isEmpty {
+                        VStack(spacing: 12) {
+                            Text(cloud.friends.isEmpty ? L("友達がいません") : L("友達の今日の投稿は、まだありません"))
+                                .foregroundStyle(.secondary)
+                            Text(cloud.friends.isEmpty ? L("右上の人のマークから、友達を追加できます") : L("下に引っぱると、読み直します"))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.top, 20)
+                    }
+                    ForEach(cloud.friendPosts) { post in
+                        CloudPostCard(post: post, asFriend: true) { commentTarget = $0 }
+                            .padding(.horizontal)
+                    }
+                } else if visible.isEmpty {
                     VStack(spacing: 12) {
                         Text(L("友達がいません")).foregroundStyle(.secondary)
                         Text(L("右上の人のマークから、友達を追加できます"))
@@ -141,6 +152,7 @@ struct FriendsView: View {
             }
             .padding(.vertical)
         }
+        .refreshable { await cloud.refresh(force: true) }
         .background(Color.black)
     }
 
@@ -153,6 +165,35 @@ struct FriendsView: View {
             .filter { $0.postedPhotoFile != nil && $0.isForFriends }
             .sorted { ($0.postedAt ?? .distantPast) > ($1.postedAt ?? .distantPast) }
             .compactMap { r in r.postedPhotoFile.flatMap { store.image(for: $0) }.map { (r, $0) } }
+    }
+
+    /// 自分の今日の投稿は、フィードの上に小さく一列にまとめる（押すと、写真とコメントを開く）
+    private var myStrip: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 14) {
+                ForEach(myPosts, id: \.record.id) { item in
+                    Button {
+                        openComments(for: item.record, image: item.image)
+                    } label: {
+                        VStack(spacing: 6) {
+                            Image(uiImage: item.image)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 66, height: 66)
+                                .clipShape(Circle())
+                                .overlay(Circle().stroke(Hi.neon, lineWidth: 2.5))
+                            Text(L("自分")).font(.caption.weight(.black)).foregroundStyle(.white)
+                            if let at = item.record.postedAt {
+                                Text(at.formatted(date: .omitted, time: .shortened))
+                                    .font(.caption2).foregroundStyle(Hi.dim)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 16)
+        }
     }
 
     /// 自分の投稿のカード（友達の投稿と同じ形）
@@ -192,7 +233,7 @@ struct FriendsView: View {
             .padding(.horizontal)
 
             DualPhotoView(main: image, inset: record.frontPhotoFile.flatMap { store.image(for: $0) })
-                .frame(height: 360)
+                .aspectRatio(PhotoShape.ratio, contentMode: .fit)
                 .overlay(alignment: .bottomLeading) {
                     Text(L(record.prompt)).font(.title3.weight(.black)).foregroundStyle(.white)
                         .shadow(color: .black.opacity(0.5), radius: 4).padding(16)
@@ -206,7 +247,7 @@ struct FriendsView: View {
             if let caption = record.caption, !caption.isEmpty {
                 Text(caption).font(.subheadline).padding(.horizontal)
             }
-            CommentLine(postID: record.id) { openComments(for: record, image: image) }
+            CommentLine(postID: record.id, cloudID: cloud.cloudID(for: record.id)) { openComments(for: record, image: image) }
                 .padding(.horizontal)
         }
         .padding(.vertical, 8)
@@ -243,7 +284,7 @@ struct FriendsView: View {
 
             // 写真（サンプルのため、お題の文字を大きく表示）
             PromptArtView(prompt: prompt)
-                .frame(height: 360)
+                .aspectRatio(PhotoShape.ratio, contentMode: .fit)
                 .overlay(alignment: .topLeading) {
                     Text(L(prompt))
                         .font(.title3.weight(.black))
@@ -265,112 +306,12 @@ struct FriendsView: View {
         .padding(.vertical, 8)
     }
 
-    // 友達の追加・削除
-    private var addSheet: some View {
-        NavigationStack {
-            List {
-                Section(L("友達を追加")) {
-                    Button {
-                        showContacts = true
-                    } label: {
-                        Label(L("連絡先から招待"), systemImage: "person.crop.circle.badge.plus")
-                    }
-                    Button {
-                        showScanner = true
-                    } label: {
-                        Label(L("相手のQRコードを読み取る"), systemImage: "qrcode.viewfinder")
-                    }
-                    HStack {
-                        TextField(L("リンクまたはIDを貼る"), text: $newFriend)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                        Button(L("追加")) {
-                            addFriend(from: newFriend)
-                        }
-                        .disabled(newFriend.trimmingCharacters(in: .whitespaces).isEmpty)
-                    }
-                    if let message {
-                        Text(message).font(.caption).foregroundStyle(.secondary)
-                    }
-                }
-
-                Section(L("自分のコード（相手に見せる）")) {
-                    VStack(spacing: 12) {
-                        if let qr = FriendCode.qrImage(for: FriendCode.shareURL) {
-                            Image(uiImage: qr)
-                                .interpolation(.none)
-                                .resizable()
-                                .frame(width: 180, height: 180)
-                        }
-                        Text(FriendCode.myID)
-                            .font(.system(.body, design: .monospaced))
-                            .textSelection(.enabled)
-                        ShareLink(item: FriendCode.shareURL) {
-                            Label(L("リンクを送る（LINEなど）"), systemImage: "square.and.arrow.up")
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 4)
-                }
-
-                Section(L("いまの友達（サンプルを含む）")) {
-                    if friends.isEmpty {
-                        Text(L("まだ友達がいません")).foregroundStyle(.secondary)
-                    }
-                    ForEach(friends, id: \.self) { name in
-                        Text(name)
-                    }
-                    .onDelete(perform: removeFriends)
-                }
-            }
-            .navigationTitle(L("友達を追加"))
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(L("閉じる")) { showAdd = false }
-                }
-            }
-            .sheet(isPresented: $showContacts) {
-                ContactsView()
-            }
-            .sheet(isPresented: $showScanner) {
-                QRScannerView { value in
-                    showScanner = false
-                    addFriend(from: value)
-                }
-                .ignoresSafeArea()
-            }
-        }
-    }
-
     private func openComments(for record: PromptRecord, image: UIImage) {
-        commentTarget = CommentTarget(id: record.id, owner: L("あなた"), caption: record.caption, image: image)
+        commentTarget = CommentTarget(id: record.id, owner: L("あなた"), caption: record.caption, image: image,
+                                      cloudID: cloud.cloudID(for: record.id), ownRecordID: record.id)
     }
 
     private func openComments(for item: Sample, prompt: String) {
         commentTarget = CommentTarget(id: item.id, owner: item.owner, caption: item.caption, prompt: prompt)
-    }
-
-    private func addFriend(from text: String) {
-        guard let id = FriendCode.parse(text) else {
-            message = L("リンクかIDを読み取れませんでした")
-            return
-        }
-        if id == FriendCode.myID {
-            message = L("自分は追加できません")
-            return
-        }
-        if friends.contains(id) {
-            message = L("すでに友達です")
-            return
-        }
-        friendList = (friends + [id]).joined(separator: ",")
-        newFriend = ""
-        message = LF("{id} を追加しました", ["id": id])
-    }
-
-    private func removeFriends(at offsets: IndexSet) {
-        var list = friends
-        list.remove(atOffsets: offsets)
-        friendList = list.joined(separator: ",")
     }
 }

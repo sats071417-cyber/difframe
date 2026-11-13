@@ -5,6 +5,7 @@ struct HitokomaApp: App {
     init() {
         // 起動直後に通知をタップされても受け取れるように、起動時に設定する
         UNUserNotificationCenter.current().delegate = NotificationDelegate.shared
+        BackgroundSync.register()
         UIWindow.appearance().backgroundColor = .black   // 起動直後に白くならないように
     }
 

@@ -26,6 +26,11 @@ Built for IceHacks 2026. iOS app written in SwiftUI (iOS 17+).
 - Per-post choice of audience (friends, everyone) and whether to allow comments
 - Optional city name on a post (only the city, never the exact location)
 - Calendar, rankings, trophies, and a share card for Stories
+- Friends by QR code or link: send a friend request, accept it, and see each other's posts
+- Direct messages between friends: text, photos (including a photo taken in the chat), voice messages, emoji reactions, read receipts, and typing indicators
+- Send a friend's post into a chat
+- Block and report, from comments and profiles
+- Notification settings: turn each kind of notification on or off
 - Five languages: English, Japanese, Chinese, Korean, Spanish
 
 ## Requirements
@@ -45,12 +50,20 @@ open Hitokoma.xcodeproj
 
 Then choose an iPhone simulator and press Run.
 
+## Server
+
+Friends, posts, comments, messages, and notifications use Firebase (Authentication and Cloud Firestore), called through the REST API. The security rules are in [firestore.rules](firestore.rules). Setting up your own copy needs your own Firebase project: set the project ID and Web API key in `Hitokoma/CloudConfig.swift`, enable Anonymous sign-in, and publish the rules.
+
+Without a server, the app still works on the device.
+
 ## Notes and limits
 
-- Other users' posts are sample data. There is no server in this version.
-- Phone number sign-up uses a demo provider: the code is shown on screen and no SMS is sent. A real SMS provider would be added later.
-- The app runs on the device. Photos, comments, and settings are stored locally.
+- The world feed shows sample posts from other users, labeled as samples in the app. Posts from real users appear when people share them.
+- Notifications for the daily prompt are scheduled on the device. Notifications for friends' actions (comments, likes, requests, messages) appear when the app is opened, or when iOS runs a background check. They do not arrive as push notifications while the app is closed; that needs an Apple Developer account and a server-side sender.
+- Phone number sign-up uses a demo provider: the code is shown on screen and no SMS is sent.
 - The camera does not work in the simulator; the app uses test images there.
+- Photos in messages are kept small (under about 800 KB), and voice messages are limited to 60 seconds.
+- The app is a prototype and is not on the App Store.
 
 ## AI use
 
