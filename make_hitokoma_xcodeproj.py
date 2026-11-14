@@ -30,14 +30,14 @@ APP_SOURCES = ["HitokomaApp.swift", "ContentView.swift", "TodayView.swift",
                "FriendCode.swift", "PromptArt.swift", "PromptVerifier.swift", "ProfileView.swift",
                "Achievements.swift", "Theme.swift", "WorldView.swift", "WorldSamples.swift",
                "CaptureFlow.swift", "WidgetBridge.swift", "OnboardingView.swift", "PromptCatalog.swift",
-               "Account.swift", "SignUpView.swift", "ContactsView.swift", "Localization.swift", "LocalizedEN.swift", "LocalizedZH.swift", "LocalizedKO.swift", "LocalizedES.swift", "TimelineScreen.swift", "Social.swift", "CityLocator.swift", "GlobeView.swift", "SettingsView.swift", "ShareCard.swift", "CloudConfig.swift", "Cloud.swift", "CloudViews.swift", "FriendList.swift", "CloudInbox.swift", "InboxViews.swift", "ChatMedia.swift", "BackgroundSync.swift"]
+               "Account.swift", "SignUpView.swift", "ContactsView.swift", "Localization.swift", "LocalizedEN.swift", "LocalizedZH.swift", "LocalizedKO.swift", "LocalizedES.swift", "TimelineScreen.swift", "Social.swift", "CityLocator.swift", "GlobeView.swift", "SettingsView.swift", "ShareCard.swift", "CloudConfig.swift", "Cloud.swift", "CloudViews.swift", "FriendList.swift", "CloudInbox.swift", "InboxViews.swift", "ChatMedia.swift", "BackgroundSync.swift", "LiveActivityBridge.swift", "FriendInviteCard.swift", "PushRegistration.swift", "PushRouter.swift"]
 def ftype(name):
     return 'folder.assetcatalog' if name.endswith('.xcassets') else 'text.json'
 
 
 APP_RESOURCES = ["sample_posts.json", "Assets.xcassets"]
 WIDGET_SOURCES = ["HitokomaWidget.swift"]
-SHARED_SOURCES = ["WidgetSnapshot.swift", "AppGroup.swift"]
+SHARED_SOURCES = ["WidgetSnapshot.swift", "AppGroup.swift", "PromptActivity.swift"]
 LOCATION_REASON = "地図であなたのいる場所を示したり、投稿に都市の名前（例：東京）をつけるために使います。正確な位置は送信しません。"
 CONTACTS_REASON = "友達に招待リンクを送る相手を選ぶために使います。連絡先は端末の外へ送りません。"
 CAMERA_REASON = "お題に合わせて、その場で写真を撮るために使います。"
@@ -97,7 +97,8 @@ def main() -> None:
                "\t\t\t<key>CFBundleURLSchemes</key>\n\t\t\t<array>\n\t\t\t\t<string>hitokoma</string>\n\t\t\t</array>\n"
                "\t\t</dict>\n\t</array>\n"
                "\t<key>UIBackgroundModes</key>\n\t<array>\n\t\t<string>fetch</string>\n\t</array>\n"
-               "\t<key>BGTaskSchedulerPermittedIdentifiers</key>\n\t<array>\n\t\t<string>" + bundle_id + ".refresh</string>\n\t</array>\n" + PLIST_TAIL)
+               "\t<key>BGTaskSchedulerPermittedIdentifiers</key>\n\t<array>\n\t\t<string>" + bundle_id + ".refresh</string>\n\t</array>\n"
+               "\t<key>UISupportedInterfaceOrientations</key>\n\t<array>\n\t\t<string>UIInterfaceOrientationPortrait</string>\n\t</array>\n" + PLIST_TAIL)
     write_text(os.path.join(dirs[WIDGET], "Info.plist"),
                PLIST_HEAD +
                "\t<key>NSExtension</key>\n\t<dict>\n"
@@ -106,8 +107,12 @@ def main() -> None:
     entitlements = (PLIST_HEAD +
                     "\t<key>com.apple.security.application-groups</key>\n\t<array>\n\t\t<string>" + group_id +
                     "</string>\n\t</array>\n" + PLIST_TAIL)
+    app_entitlements = (PLIST_HEAD +
+                        "\t<key>aps-environment</key>\n\t<string>development</string>\n"
+                        "\t<key>com.apple.security.application-groups</key>\n\t<array>\n\t\t<string>" + group_id +
+                        "</string>\n\t</array>\n" + PLIST_TAIL)
     if use_group:
-        write_text(os.path.join(dirs[APP], f"{APP}.entitlements"), entitlements)
+        write_text(os.path.join(dirs[APP], f"{APP}.entitlements"), app_entitlements)
         write_text(os.path.join(dirs[WIDGET], f"{WIDGET}.entitlements"), entitlements)
 
     for folder, names in [(APP, APP_SOURCES + APP_RESOURCES), (WIDGET, WIDGET_SOURCES), ("Shared", SHARED_SOURCES)]:
@@ -248,7 +253,12 @@ def main() -> None:
         w(f"\t\t{ids[key]} /* {name} */ = {{isa = XCBuildConfiguration; buildSettings = {{ "
           f"ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; SWIFT_VERSION = 5.0; {opt}}}; name = {name}; }};")
 
-    sim = '"CODE_SIGNING_REQUIRED[sdk=iphonesimulator*]" = NO; "CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]" = NO; '
+    if use_group:
+        # App Groups only work when the simulator build is signed (ad-hoc), so the entitlements get embedded.
+        sim = ('"CODE_SIGNING_REQUIRED[sdk=iphonesimulator*]" = NO; "CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]" = YES; '
+               '"CODE_SIGN_IDENTITY[sdk=iphonesimulator*]" = "-"; ')
+    else:
+        sim = '"CODE_SIGNING_REQUIRED[sdk=iphonesimulator*]" = NO; "CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]" = NO; '
     team_setting = f"DEVELOPMENT_TEAM = {team}; " if team else ""
     common = ("CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; GENERATE_INFOPLIST_FILE = YES; "
               "IPHONEOS_DEPLOYMENT_TARGET = 17.0; MARKETING_VERSION = 1.0; SUPPORTED_PLATFORMS = \"iphoneos iphonesimulator\"; "
@@ -257,7 +267,7 @@ def main() -> None:
         f"INFOPLIST_FILE = {APP}/Info.plist; "
         "ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES; INFOPLIST_KEY_UILaunchScreen_Generation = YES; "
         f"INFOPLIST_KEY_NSCameraUsageDescription = \"{CAMERA_REASON}\"; "
-        "INFOPLIST_KEY_CFBundleDisplayName = Difframe; "
+        "INFOPLIST_KEY_CFBundleDisplayName = Difframe; INFOPLIST_KEY_NSSupportsLiveActivities = YES; "
         f"INFOPLIST_KEY_NSContactsUsageDescription = \"{CONTACTS_REASON}\"; "
         f"INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = \"{LOCATION_REASON}\"; "
         f"INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = \"自分の投稿を、写真アプリに保存するために使います。\"; "

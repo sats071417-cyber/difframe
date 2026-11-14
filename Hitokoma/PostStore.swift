@@ -280,7 +280,8 @@ final class PostStore: ObservableObject {
         for index in records.indices where records[index].dayKey == key
             && records[index].postedPhotoFile == nil
             && records[index].scheduledAt == nil {
-            records[index].scheduledAt = NotificationScheduler.fireTime(for: Date())
+            // 通知の時刻がもう過ぎていたら、いまから数える（知らないうちに早く始めたことにしない）
+            records[index].scheduledAt = max(NotificationScheduler.fireTime(for: Date()), Date())
             changed = true
         }
         if changed { save() }

@@ -15,6 +15,8 @@ struct ProfileView: View {
     @State private var scrollTarget: String? = nil
     @State private var showSettings = false
     @State private var showRanks = false
+    @State private var showAllPosts = false
+    @State private var showInvite = false
     @State private var showFriends = false
     @ObservedObject private var cloud = CloudSync.shared
     @State private var editingHandle = false
@@ -194,22 +196,40 @@ struct ProfileView: View {
                 }
                 .buttonStyle(TileButtonStyle())
             }
-            // 友達（Instagram のように、人数を見せて、押すと一覧と追加）
-            Button {
-                showFriends = true
-            } label: {
-                HStack(spacing: 10) {
-                    Image(systemName: "person.2.fill").foregroundStyle(Hi.neon)
-                    Text(LF("友達 {n}人", ["n": "\(friendTotal)"])).font(.subheadline.weight(.black))
-                    Spacer()
-                    Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(Hi.dim)
+            // 友達（Instagram のように、人数を見せて、押すと一覧と追加）。右の QR は、自分のQRコードをすぐ出す
+            HStack(spacing: 10) {
+                Button {
+                    showFriends = true
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "person.2.fill").foregroundStyle(Hi.neon)
+                        Text(LF("友達 {n}人", ["n": "\(friendTotal)"])).font(.subheadline.weight(.black))
+                        Spacer()
+                        Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(Hi.dim)
+                    }
+                    .foregroundStyle(.white)
+                    .contentShape(Rectangle())
+                    .hiTile(cornerRadius: 22)
                 }
-                .foregroundStyle(.white)
-                .contentShape(Rectangle())
-                .hiTile(cornerRadius: 22)
+                .buttonStyle(.plain)
+                Button {
+                    showInvite = true
+                } label: {
+                    Image(systemName: "person.badge.plus")
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundStyle(Hi.neon)
+                        .frame(width: 24)
+                        .frame(maxHeight: .infinity)
+                        .contentShape(Rectangle())
+                        .hiTile(cornerRadius: 22)
+                        .fixedSize(horizontal: true, vertical: false)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L("友達追加カード"))
             }
-            .buttonStyle(.plain)
+            .fixedSize(horizontal: false, vertical: true)
             .sheet(isPresented: $showFriends) { FriendListSheet() }
+            .sheet(isPresented: $showInvite) { FriendInviteSheet() }
         }
     }
 
@@ -412,25 +432,45 @@ struct ProfileView: View {
         .accessibilityValue(unlocked ? L("獲得済み") : L("未獲得"))
     }
 
+    /// 自分の投稿：一列で、左右にスワイプして過去に戻れる。「広げる」で全部を一覧に
     private var postsGrid: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(L("自分の投稿")).font(.title3.weight(.black)).foregroundStyle(.white)
+            HStack {
+                Text(L("自分の投稿")).font(.title3.weight(.black)).foregroundStyle(.white)
+                Spacer()
+                if !myPosts.isEmpty {
+                    Button { showAllPosts = true } label: {
+                        Label(L("広げる"), systemImage: "square.grid.2x2")
+                    }
+                    .buttonStyle(TileButtonStyle())
+                    .accessibilityLabel(L("投稿をすべて広げて見る"))
+                }
+            }
             if myPosts.isEmpty {
                 Text(L("今日のお題を撮ると、ここに並びます"))
                     .font(.subheadline)
                     .foregroundStyle(Hi.dim)
             } else {
-                LazyVGrid(columns: columns, spacing: 6) {
-                    ForEach(myPosts) { record in
-                        postCell(record)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(spacing: 10) {
+                        ForEach(myPosts) { record in
+                            postCell(record)
+                                .frame(width: 150, height: 150)
+                        }
                     }
+                    .scrollTargetLayout()
                 }
+                .scrollTargetBehavior(.viewAligned)
+                .scrollClipDisabled()
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .fullScreenCover(isPresented: Binding(get: { viewerID != nil }, set: { if !$0 { viewerID = nil } })) {
             PhotoViewer(startID: viewerID ?? "")
                 .environmentObject(store)
+        }
+        .sheet(isPresented: $showAllPosts) {
+            AllPostsSheet().environmentObject(store)
         }
     }
 
@@ -755,6 +795,51 @@ struct AvatarCropper: View {
         let format = UIGraphicsImageRendererFormat.default(); format.scale = 1; format.opaque = true
         return UIGraphicsImageRenderer(size: CGSize(width: out, height: out), format: format).image { _ in
             image.draw(in: CGRect(x: -(cx - cropSide / 2) * s, y: -(cy - cropSide / 2) * s, width: w * s, height: h * s))
+        }
+    }
+}
+
+
+/// 自分の投稿を、全部広げて見る一覧
+struct AllPostsSheet: View {
+    @EnvironmentObject private var store: PostStore
+    @Environment(\.dismiss) private var dismiss
+    @State private var viewerID: String? = nil
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 3)
+
+    private var posts: [PromptRecord] {
+        store.records.filter { $0.postedPhotoFile != nil }.sorted { $0.dayKey > $1.dayKey }
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                LazyVGrid(columns: columns, spacing: 6) {
+                    ForEach(posts) { record in
+                        if let file = record.postedPhotoFile, let image = store.image(for: file) {
+                            Button { viewerID = record.id } label: {
+                                Color.clear
+                                    .aspectRatio(1, contentMode: .fit)
+                                    .overlay(Image(uiImage: image).resizable().scaledToFill())
+                                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+                .padding(16)
+            }
+            .background(Color.black.ignoresSafeArea())
+            .navigationTitle(L("自分の投稿"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) { Button(L("閉じる")) { dismiss() } }
+            }
+        }
+        .presentationBackground(.black)
+        .preferredColorScheme(.dark)
+        .fullScreenCover(isPresented: Binding(get: { viewerID != nil }, set: { if !$0 { viewerID = nil } })) {
+            PhotoViewer(startID: viewerID ?? "").environmentObject(store)
         }
     }
 }

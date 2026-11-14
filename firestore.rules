@@ -31,14 +31,24 @@ service cloud.firestore {
     // Notifications: friend requests, "now friends", comments, new message, a friend's new post.
     // Only the owner reads them. A sender may write one for someone (friend requests and comments from anyone,
     // accepted/message/friendPost only between friends) and may overwrite their own.
+    // Sizes are capped so nobody can stuff someone else's inbox with huge documents.
+    function validNotice(d) {
+      return d.get('text', '') is string && d.get('text', '').size() <= 500
+        && d.get('fromName', '') is string && d.get('fromName', '').size() <= 100
+        && d.get('fromCode', '') is string && d.get('fromCode', '').size() <= 40
+        && d.get('postID', '') is string && d.get('postID', '').size() <= 200;
+    }
+
     match /notifications/{owner}/items/{item} {
       allow read, delete: if signedIn() && me() == owner;
       allow create: if signedIn() && request.resource.data.fromUID == me()
         && request.resource.data.type in ['friendRequest', 'friendAccepted', 'comment', 'like', 'message', 'friendPost']
         && (request.resource.data.type in ['friendRequest', 'comment', 'like'] || areFriends(owner, me()))
-        && !exists(/databases/$(database)/documents/blocks/$(owner)/list/$(me()));
+        && !exists(/databases/$(database)/documents/blocks/$(owner)/list/$(me()))
+        && validNotice(request.resource.data);
       allow update: if signedIn() && (me() == owner
-        || (resource.data.fromUID == me() && request.resource.data.fromUID == me()));
+        || (resource.data.fromUID == me() && request.resource.data.fromUID == me()
+            && validNotice(request.resource.data)));
     }
 
     // Direct messages between two friends. chatId = the two uids, sorted, joined by "_".
@@ -49,14 +59,17 @@ service cloud.firestore {
         return signedIn() && parts().size() == 2 && me() in parts() && areFriends(me(), other());
       }
 
-      // A message is text, a photo or a voice clip. Either friend may add a reaction (their own key only).
+      // A message is text, a photo (with an optional small second photo) or a voice clip.
+      // Either friend may add a reaction (their own key only).
       match /messages/{msg} {
         allow read: if member();
         allow create: if member() && request.resource.data.from == me() && (
           (request.resource.data.kind == 'text' && request.resource.data.text is string
             && request.resource.data.text.size() <= 1000)
           || (request.resource.data.kind == 'photo' && request.resource.data.photo is bytes
-            && request.resource.data.photo.size() <= 900000)
+            && request.resource.data.photo.size() <= 900000
+            && (!('front' in request.resource.data)
+                || (request.resource.data.front is bytes && request.resource.data.front.size() <= 250000)))
           || (request.resource.data.kind == 'voice' && request.resource.data.voice is bytes
             && request.resource.data.voice.size() <= 400000));
         allow update: if member() && request.resource.data.from == resource.data.from
@@ -71,6 +84,16 @@ service cloud.firestore {
       }
     }
 
+    // Push notification targets: each user keeps one document with their device token (the server reads it with admin rights).
+    match /devices/{owner} {
+      allow read, delete: if signedIn() && me() == owner;
+      allow create, update: if signedIn() && me() == owner
+        && request.resource.data.token is string && request.resource.data.token.size() <= 200
+        && request.resource.data.env in ['sandbox', 'production']
+        && request.resource.data.get('lang', '') is string && request.resource.data.get('lang', '').size() <= 8
+        && request.resource.data.get('muted', []) is list && request.resource.data.get('muted', []).size() <= 10;
+    }
+
     // Blocks: each user keeps their own list. A blocked person can't send them requests, comments or notices.
     match /blocks/{owner}/list/{other} {
       allow read, write: if signedIn() && me() == owner;
@@ -82,31 +105,59 @@ service cloud.firestore {
       allow write: if signedIn() && me() == owner;
     }
 
-    // Reports: anyone signed in can file one. Nobody reads them from the app (the team checks them directly).
+    // Reports: anyone signed in can file one (short reason only). Nobody reads them from the app (the team checks them directly).
     match /reports/{id} {
-      allow create: if signedIn() && request.resource.data.reporter == me();
+      allow create: if signedIn() && request.resource.data.reporter == me()
+        && request.resource.data.reason is string && request.resource.data.reason.size() <= 500;
     }
 
     match /posts/{postId} {
       function canRead(p) {
         return p.toPublic == true || me() in p.audience;
       }
+
+      // What a client may claim about a post. The server can't check that a photo really matches the prompt,
+      // but it can keep the time, the speed and the sizes inside believable ranges.
+      function validPost(d) {
+        return d.postedAt is timestamp
+          && d.postedAt <= request.time + duration.value(5, 'm')
+          && d.postedAt >= request.time - duration.value(60, 'd')
+          && (!('elapsed' in d) || (d.elapsed is number && d.elapsed >= 1 && d.elapsed <= 172800))
+          && (!('tzOffset' in d) || (d.tzOffset is int && d.tzOffset >= -50400 && d.tzOffset <= 50400))
+          && d.photo is bytes && d.photo.size() <= 900000
+          && (!('front' in d) || (d.front is bytes && d.front.size() <= 450000))
+          && (!('caption' in d) || (d.caption is string && d.caption.size() <= 500))
+          && (!('city' in d) || (d.city is string && d.city.size() <= 100))
+          && (!('name' in d) || (d.name is string && d.name.size() <= 100));
+      }
+
       allow read: if signedIn() && canRead(resource.data);
       allow create: if signedIn() && request.resource.data.owner == me()
-                    && postId.matches(me() + '_.*');
+                    && postId.matches(me() + '_.*')
+                    && validPost(request.resource.data);
+      // Changing who can see it, the caption or the comment switch is free. Anything else must stay believable.
       allow update: if signedIn() && resource.data.owner == me()
-                    && request.resource.data.owner == me();
+                    && request.resource.data.owner == me()
+                    && (request.resource.data.diff(resource.data).affectedKeys()
+                          .hasOnly(['audience', 'toPublic', 'toFriends', 'commentsOff', 'caption', 'city'])
+                        || validPost(request.resource.data));
       allow delete: if signedIn() && resource.data.owner == me();
 
       match /comments/{commentId} {
         function post() { return get(/databases/$(database)/documents/posts/$(postId)).data; }
+        function validComment(d) {
+          return d.uid == me()
+            && d.text is string && d.text.size() <= 500
+            && d.get('name', '') is string && d.get('name', '').size() <= 100
+            && d.get('replyText', '') is string && d.get('replyText', '').size() <= 300
+            && canRead(post())
+            && (post().commentsOff != true || me() in post().audience)
+            && !exists(/databases/$(database)/documents/blocks/$(post().owner)/list/$(me()));
+        }
         allow read: if signedIn() && canRead(post());
-        allow create, update: if signedIn() && request.resource.data.uid == me()
-                         && request.resource.data.text is string
-                         && request.resource.data.text.size() <= 500
-                         && canRead(post())
-                         && (post().commentsOff != true || me() in post().audience)
-                         && !exists(/databases/$(database)/documents/blocks/$(post().owner)/list/$(me()));
+        allow create: if signedIn() && validComment(request.resource.data);
+        // Only the person who wrote a comment may change it (before, anyone who could read the post could take it over).
+        allow update: if signedIn() && resource.data.uid == me() && validComment(request.resource.data);
         allow delete: if signedIn() && (resource.data.uid == me() || post().owner == me());
       }
     }

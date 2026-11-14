@@ -148,6 +148,7 @@ struct PersonProfileSheet: View {
 
     var body: some View {
         NavigationStack {
+            ScrollView {
             VStack(spacing: 14) {
                 Spacer(minLength: 20)
                 switch phase {
@@ -169,6 +170,8 @@ struct PersonProfileSheet: View {
             }
             .padding(24)
             .frame(maxWidth: .infinity)
+            }
+            .scrollBounceBehavior(.basedOnSize)
             .background(Color.black.ignoresSafeArea())
             .navigationTitle(L("プロフィール"))
             .navigationBarTitleDisplayMode(.inline)
@@ -211,6 +214,78 @@ struct PersonProfileSheet: View {
         }
     }
 
+    // MARK: 相手の数字（ランク・連続・投稿・自己ベスト・地域・トロフィー）
+
+    private func statsSection(_ p: CloudProfile) -> some View {
+        VStack(spacing: 14) {
+            HStack(spacing: 8) {
+                statTile(L("連続"), p.streak.map { LF("{n}日", ["n": "\($0)"]) } ?? "--")
+                statTile(L("投稿"), p.posts.map { LF("{n}枚", ["n": "\($0)"]) } ?? "--")
+                statTile(L("自己ベスト"), p.best.map { TimeFormat.string($0) } ?? "--")
+                statTile(L("地域"), p.region.map { LF("{n}位", ["n": "\($0)"]) } ?? "--")
+            }
+            if let rank = p.rank.flatMap(Rank.init(rawValue:)) {
+                rankCard(rank, points: p.points)
+            }
+            trophyCard(Set(p.trophies.compactMap(Trophy.init(key:))))
+        }
+    }
+
+    private func statTile(_ title: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title).font(.caption).foregroundStyle(Hi.dim).lineLimit(1).minimumScaleFactor(0.7)
+            Text(value).font(.subheadline.weight(.black)).foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.7)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+        .hiTile(cornerRadius: 18)
+    }
+
+    private func rankCard(_ rank: Rank, points: Int?) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: rank.icon).font(.title2).foregroundStyle(rank.color)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(L("今月のランク")).font(.caption).foregroundStyle(Hi.dim)
+                Text(rank.name).font(.title3.weight(.black)).foregroundStyle(rank.color)
+            }
+            Spacer()
+            if let points {
+                Text("\(points) pt").font(.headline.monospacedDigit().weight(.black)).foregroundStyle(.white)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .hiTile(cornerRadius: 22)
+    }
+
+    private func trophyCard(_ earned: Set<Trophy>) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text(L("トロフィー")).font(.headline.weight(.black))
+                Spacer()
+                Text("\(earned.count) / \(Trophy.allCases.count)")
+                    .font(.subheadline.weight(.bold)).foregroundStyle(Hi.dim)
+            }
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 3), spacing: 6) {
+                ForEach(Trophy.allCases) { trophy in
+                    let on = earned.contains(trophy)
+                    VStack(spacing: 5) {
+                        Image(systemName: trophy.icon)
+                            .font(.title3)
+                            .foregroundStyle(on ? Hi.neon : Hi.dim.opacity(0.35))
+                        Text(trophy.title)
+                            .font(.caption2.weight(.black))
+                            .foregroundStyle(on ? .white : Hi.dim)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 64)
+                    .accessibilityElement(children: .combine)
+                }
+            }
+        }
+        .hiTile(cornerRadius: 22)
+    }
+
     private func card(_ p: CloudProfile) -> some View {
         VStack(spacing: 10) {
             Circle()
@@ -223,11 +298,8 @@ struct PersonProfileSheet: View {
                 Text("@" + p.handle).font(.subheadline).foregroundStyle(Hi.dim)
                 if let rank = p.rank.flatMap(Rank.init(rawValue:)) { RankBadge(rank: rank) }
             }
-            if let streak = p.streak, streak > 0 {
-                Label(LF("{n}日連続", ["n": "\(streak)"]), systemImage: "flame.fill")
-                    .font(.caption.weight(.bold)).foregroundStyle(.orange)
-            }
             Text(p.code).font(.system(.caption, design: .monospaced)).foregroundStyle(Hi.dim)
+            statsSection(p).padding(.top, 10)
 
             Spacer(minLength: 16)
             if isMe {

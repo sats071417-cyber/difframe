@@ -6,6 +6,7 @@ struct TimelineScreen: View {
     private enum Section: Hashable { case friends, everyone }
     @State private var section: Section = .friends
     @State private var showAdd = false
+    @State private var showInvite = false
 
     var body: some View {
         VStack(spacing: 10) {
@@ -13,7 +14,7 @@ struct TimelineScreen: View {
                 HStack(spacing: 10) {
                 NotificationBell()
                 Button {
-                    showAdd = true
+                    showInvite = true
                 } label: {
                     Image(systemName: "person.badge.plus")
                         .font(.title3)
@@ -40,5 +41,6 @@ struct TimelineScreen: View {
             }
         }
         .background(Color.black.ignoresSafeArea())
+        .sheet(isPresented: $showInvite) { FriendInviteSheet() }
     }
 }

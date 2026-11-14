@@ -6,6 +6,10 @@ struct ContentView: View {
     @State private var selection: AppTab = .today
     @State private var visited: Set<AppTab> = [.today]   // 開いた画面だけ作る（地図を最初から読み込まない）
     @State private var showCapture = false
+    @ObservedObject private var router = PushRouter.shared
+    @State private var showNotices = false
+    @State private var pushPost: CommentTarget? = nil
+    @State private var pushChat: CloudFriend? = nil
     @State private var showFull = false
     @State private var viewingCode: CodeTarget? = nil   // リンクやQRで開いた、友達コードの持ち主
     @AppStorage(AppLanguage.storageKey) private var languageRaw = ""   // 空 = iPhone の言語に合わせる   // 言語を変えると、画面全体を作り直す
@@ -52,6 +56,15 @@ struct ContentView: View {
             }
         }
         .sheet(item: $viewingCode) { PersonProfileSheet(code: $0.id, canAdd: true) }
+        .sheet(isPresented: $showNotices) { InboxSheet() }
+        .sheet(item: $pushPost) { t in
+            CommentSheet(postID: t.id, owner: t.owner, caption: t.caption, image: t.image,
+                         prompt: t.prompt, cloudID: t.cloudID, ownRecordID: t.ownRecordID, focusID: t.focusID)
+                .environmentObject(store)
+        }
+        .sheet(item: $pushChat) { ChatView(friend: $0) }
+        .onChange(of: router.route) { _, _ in openPushRoute() }
+        .onAppear { openPushRoute() }
         .alert(L("今日のお題は、通知で届きます"), isPresented: $showHidden) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -132,4 +145,30 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
+}
+
+extension ContentView {
+    /// 通知をタップされたときの、開く先（投稿・DM・通知一覧）
+    @MainActor
+    func openPushRoute() {
+        guard let route = PushRouter.shared.route else { return }
+        PushRouter.shared.route = nil
+        switch route {
+        case .notices:
+            showNotices = true
+        case .chat(let friend):
+            pushChat = friend
+        case .post(let postID, let name):
+            let owner = postID.split(separator: "_").first.map(String.init) ?? ""
+            let recordID = postID.split(separator: "_", maxSplits: 1).last.map(String.init) ?? ""
+            if owner == CloudSync.shared.uid, let record = PostStore.shared.records.first(where: { $0.id == recordID }) {
+                // 自分の投稿：写真・一言も、そのまま見られる
+                let image = record.postedPhotoFile.flatMap { PostStore.shared.image(for: $0) }
+                pushPost = CommentTarget(id: recordID, owner: L("あなた"), caption: record.caption, image: image,
+                                         cloudID: postID, ownRecordID: recordID)
+            } else {
+                pushPost = CommentTarget(id: postID, owner: name, cloudID: postID)
+            }
+        }
+    }
 }

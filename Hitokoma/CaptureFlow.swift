@@ -40,13 +40,15 @@ final class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelega
         zoomStops = [0.5, 1, 2, 3]
         return
         #else
+        // 開くたびに許可を確認し直す（設定アプリで許可して戻ってきた場合も動くように）
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized:
+            isDenied = false
             configureAndRun()
         case .notDetermined:
             AVCaptureDevice.requestAccess(for: .video) { granted in
                 DispatchQueue.main.async {
-                    if granted { self.configureAndRun() } else { self.isDenied = true }
+                    if granted { self.isDenied = false; self.configureAndRun() } else { self.isDenied = true }
                 }
             }
         default:
@@ -73,9 +75,12 @@ final class CameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelega
                 self.session.commitConfiguration()
                 self.configured = true
                 if !added {
+                    // 次に開いたとき、もう一度設定し直せるようにする
+                    self.configured = false
                     DispatchQueue.main.async { self.isUnavailable = true }
                     return
                 }
+                DispatchQueue.main.async { self.isUnavailable = false }
             }
             if !self.session.isRunning { self.session.startRunning() }
             self.refreshFlash()
@@ -358,13 +363,15 @@ struct CameraPreview: UIViewRepresentable {
 struct CaptureFlow: View {
     private enum Stage: Equatable { case camera, review, done }
     /// DM から開いたとき：投稿の代わりに、撮った写真をその会話に送る（投稿・フィードには出ない）
-    var directSend: ((UIImage) -> Void)? = nil
+    var directSend: ((UIImage, UIImage?) -> Void)? = nil
 
     @EnvironmentObject private var store: PostStore
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.openURL) private var openURL
     @StateObject private var camera = CameraModel()
 
-    @AppStorage("dualCamera") private var dualCamera = false   // 内カメラも撮る（初期は外カメラだけ）
+    @AppStorage("dualCamera") private var dualCamera = true
     @State private var stage: Stage = .camera
     @State private var photo: UIImage? = nil          // 確認画面に出す、重ねた1枚
     @State private var backShot: UIImage? = nil       // 外カメラの写真（お題の確認は、これだけで行う）
@@ -376,7 +383,7 @@ struct CaptureFlow: View {
     @AppStorage("publicCommentsDefault") private var publicComments = true   // みんなの投稿で、コメントを受け付けるか（前回の選択を覚える）
     @AppStorage("shareFriends") private var sendFriends = true     // 友達に送る（前回の選択を覚える）
     @AppStorage("sharePublic") private var sendPublic = true       // みんなに送る
-    @AppStorage("shareLocation") private var addLocation = false   // 場所（都市の名前）をつける
+    @AppStorage("shareLocation") private var addLocation = true   // 場所（都市の名前）をつける
     @StateObject private var locator = CityLocator()
     @State private var showShare = false
     @State private var checking = false
@@ -414,6 +421,10 @@ struct CaptureFlow: View {
         .onChange(of: stage) { _, newStage in
             // 撮る画面以外では、カメラを止める
             if newStage == .camera { camera.start() } else { camera.stop() }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            // 設定アプリから戻ってきたら、許可を見直してカメラを開く
+            if phase == .active, stage == .camera { camera.start() }
         }
         .alert(L("お題と違うかもしれません"), isPresented: $mismatchAlert) {
             Button(L("撮り直す")) { retake() }
@@ -458,6 +469,15 @@ struct CaptureFlow: View {
                             Image(uiImage: frozenBack).resizable().scaledToFill()
                         } else if camera.isDenied {
                             notice(L("カメラの許可が必要です"), detail: L("設定アプリで、Difframeのカメラを許可してください。"))
+                                .overlay(alignment: .bottom) {
+                                    Button {
+                                        if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+                                    } label: {
+                                        Label(L("設定を開く"), systemImage: "gearshape")
+                                    }
+                                    .buttonStyle(NeonButtonStyle())
+                                    .padding(.bottom, 20)
+                                }
                         } else if camera.isUnavailable {
                             notice(isSimulator ? L("シミュレーターにはカメラがありません") : L("カメラが使えません"),
                                    detail: isSimulator ? L("撮るボタンを押すと、テスト用の画像で進めます。") : L("この端末では、カメラを開けませんでした。"))
@@ -824,7 +844,7 @@ struct CaptureFlow: View {
             // 投稿する → どこに送るかを選ぶ（DM から開いたときは、そのまま会話に送る）
             Button {
                 if let directSend, let photo {
-                    directSend(photo)
+                    directSend(photo, frontShot)
                     dismiss()
                 } else {
                     showShare = true
@@ -875,6 +895,8 @@ struct CaptureFlow: View {
         frozenBack = nil
         caption = ""
         stage = .camera
+        // 撮り直しは、選んでいた最初のカメラ（mainPosition）から。最後に使ったカメラのままにしない
+        camera.switchTo(mainPosition)
     }
 
     // MARK: 投稿しました

@@ -4,6 +4,8 @@ import WidgetKit
 /// アプリの状況を、ウィジェットに知らせる
 enum WidgetBridge {
     static func push(_ store: PostStore) {
+        // ダイナミックアイランド・ロック画面のお題も、同じタイミングで整える
+        LiveActivityBridge.sync(store)
         let today = store.activeDayKey()
         let records = store.records(day: today)
         let hidden = store.isPromptHidden()

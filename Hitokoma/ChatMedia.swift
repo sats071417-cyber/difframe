@@ -4,12 +4,12 @@ import UIKit
 
 /// DM の写真を、送れる大きさに縮める（1メッセージは 1MB まで。目安 800KB）
 enum ChatPhoto {
-    static func encode(_ image: UIImage) -> Data {
-        var side: CGFloat = 1200
+    static func encode(_ image: UIImage, startSide: CGFloat = 1200, budget: Int = 800_000) -> Data {
+        var side: CGFloat = startSide
         var quality: CGFloat = 0.7
         while true {
             let data = image.scaled(maxSide: side).jpegData(compressionQuality: quality) ?? Data()
-            if data.count < 800_000 || side < 400 { return data }
+            if data.count < budget || side < 400 { return data }
             side *= 0.85
             quality = max(0.4, quality - 0.08)
         }

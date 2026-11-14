@@ -25,6 +25,7 @@ struct CloudMessage: Identifiable {
     let text: String
     let date: Date
     var photo: UIImage? = nil
+    var front: UIImage? = nil     // 両方撮りのとき、内カメラの写真（小さい枠）
     var voice: Data? = nil
     var duration: Double = 0
     var reactions: [String: String] = [:]   // 送った人の uid → 絵文字
@@ -170,6 +171,7 @@ extension CloudSync {
                                     from: FS.string(f, "from") ?? "", kind: kind,
                                     text: FS.string(f, "text") ?? "", date: FS.date(f, "date") ?? Date(),
                                     photo: kind == "photo" ? FS.bytes(f, "photo").flatMap(UIImage.init(data:)) : nil,
+                                    front: kind == "photo" ? FS.bytes(f, "front").flatMap(UIImage.init(data:)) : nil,
                                     voice: kind == "voice" ? FS.bytes(f, "voice") : nil,
                                     duration: FS.double(f, "duration") ?? 0,
                                     reactions: FS.strings(f, "reactions"),
@@ -221,11 +223,15 @@ extension CloudSync {
     }
 
     /// 写真を送る（小さくしてから、メッセージの中に入れる）
-    func sendPhoto(to friendUID: String, image: UIImage) async throws {
-        let data = ChatPhoto.encode(image)
+    func sendPhoto(to friendUID: String, image: UIImage, front: UIImage? = nil) async throws {
+        // 1メッセージは 1MB まで。外カメラを 600KB、内カメラの枠を 180KB 以内に収める
+        let data = ChatPhoto.encode(image, budget: 600_000)
         guard data.count < 900_000 else { throw CloudError.server("photo too large") }
-        try await write(friendUID, id: UUID().uuidString, date: Date(),
-                        extra: ["kind": .string("photo"), "photo": .bytes(data)])
+        var extra: [String: FS] = ["kind": .string("photo"), "photo": .bytes(data)]
+        if let front {
+            extra["front"] = .bytes(ChatPhoto.encode(front, startSide: 600, budget: 180_000))
+        }
+        try await write(friendUID, id: UUID().uuidString, date: Date(), extra: extra)
         await notify(to: friendUID, id: "msg_\(uid ?? "")", type: "message", text: "📷")
         await loadMessages(with: friendUID)
     }

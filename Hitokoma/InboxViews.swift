@@ -166,8 +166,8 @@ private struct EmptyNote: View {
 
 // MARK: - 通知
 
-/// 通知の分け方：コメント・いいね ／ 友達（リクエスト・友達になった・友達の投稿）
-enum InboxTab: Hashable { case social, friends }
+/// 通知の分け方：通知（コメント・いいね・友達の投稿）／ 友達リクエスト（リクエスト・友達になった）
+enum InboxTab: Hashable { case notices, requests }
 
 /// 通知の一覧。開いているあいだは未読を黄緑の点で示し、閉じると既読にする
 struct InboxSheet: View {
@@ -175,10 +175,10 @@ struct InboxSheet: View {
     @ObservedObject private var cloud = CloudSync.shared
     @State private var profile: CodeTarget? = nil
     @State private var post: CommentTarget? = nil
-    @State private var tab: InboxTab = .social
+    @State private var tab: InboxTab = .notices
 
-    private static let socialTypes = ["comment", "like"]
-    private static let friendTypes = ["friendAccepted", "friendPost"]
+    private static let noticeTypes = ["comment", "like", "friendPost"]
+    private static let requestTypes = ["friendAccepted"]
 
     private func unread(_ types: [String]) -> Int {
         cloud.notices.filter { types.contains($0.type) && !$0.read && !NotifySettings.isMuted($0.type) }.count
@@ -191,30 +191,30 @@ struct InboxSheet: View {
 
     /// いま選んでいる分け方の通知（リクエストとメッセージは除く。ミュート中の種類は出さない）
     private var shown: [CloudNotice] {
-        let types = tab == .social ? Self.socialTypes : Self.friendTypes
+        let types = tab == .notices ? Self.noticeTypes : Self.requestTypes
         return cloud.notices.filter { types.contains($0.type) && !NotifySettings.isMuted($0.type) }
     }
 
     var body: some View {
         VStack(spacing: 0) {
             SheetHeader(title: L("通知"), onClose: { dismiss() }) { EmptyView() }
-            HiSegment(options: [(value: InboxTab.social, title: segmentTitle(L("コメント・いいね"), unread(Self.socialTypes))),
-                                (value: InboxTab.friends, title: segmentTitle(L("友達"), unread(Self.friendTypes + ["friendRequest"])))],
+            HiSegment(options: [(value: InboxTab.notices, title: segmentTitle(L("通知"), unread(Self.noticeTypes))),
+                                (value: InboxTab.requests, title: segmentTitle(L("友達リクエスト"), unread(Self.requestTypes + ["friendRequest"])))],
                       selection: $tab)
                 .padding(.horizontal, 16)
                 .padding(.bottom, 8)
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 10) {
-                    if tab == .friends && !requests.isEmpty {
+                    if tab == .requests && !requests.isEmpty {
                         sectionTitle(L("友達リクエスト"), count: requests.count)
                         ForEach(requests) { requestCard($0) }
                     }
-                    if shown.isEmpty && (tab == .social || requests.isEmpty) {
-                        EmptyNote(symbol: tab == .social ? "heart.fill" : "person.2.fill",
+                    if shown.isEmpty && (tab == .notices || requests.isEmpty) {
+                        EmptyNote(symbol: tab == .notices ? "bell.fill" : "person.2.fill",
                                   title: L("通知はありません"),
-                                  detail: tab == .social ? L("コメントやいいねが届くと、ここに出ます。")
-                                                         : L("友達リクエストや、友達の投稿が届くと、ここに出ます。"))
+                                  detail: tab == .notices ? L("コメントやいいね、友達の投稿が届くと、ここに出ます。")
+                                                          : L("友達リクエストや、友達になった通知が届くと、ここに出ます。"))
                             .padding(.top, 8)
                     }
                     ForEach(DayGroup.allCases, id: \.self) { group in
@@ -245,9 +245,9 @@ struct InboxSheet: View {
         .preferredColorScheme(.dark)
     }
 
-    /// 通知を開く：コメント・いいねは、その投稿のコメント画面へ（返信もそこでできる）。ほかは相手のプロフィールへ
+    /// 通知を開く：コメント・いいね・友達の投稿は、その投稿の画面へ（返信もそこでできる）。ほかは相手のプロフィールへ
     private func open(_ n: CloudNotice) {
-        if ["comment", "like"].contains(n.type), let postID = n.postID, !postID.isEmpty {
+        if ["comment", "like", "friendPost"].contains(n.type), let postID = n.postID, !postID.isEmpty {
             let owner = postID.split(separator: "_").first.map(String.init) ?? ""
             let recordID = postID.split(separator: "_", maxSplits: 1).last.map(String.init) ?? ""
             if owner == cloud.uid, let record = PostStore.shared.records.first(where: { $0.id == recordID }) {
@@ -557,6 +557,33 @@ struct DMListSheet: View {
     }
 }
 
+/// DM の写真を大きく見る（両方の写真。ピンチで拡大、小さい枠を押すと入れ替え）
+struct DMPhotoViewer: View {
+    let main: UIImage
+    let inset: UIImage?
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            Color.black.ignoresSafeArea()
+            DualPhotoView(main: main, inset: inset)
+                .aspectRatio(PhotoShape.ratio, contentMode: .fit)
+                .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+                .padding(16)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            Button { dismiss() } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 44, height: 44)
+                    .background(Circle().fill(Color.white.opacity(0.15)))
+            }
+            .padding(16)
+            .accessibilityLabel(L("閉じる"))
+        }
+    }
+}
+
 /// 友達とのメッセージ（DM）：文字・写真・ボイス、絵文字のリアクション、既読
 struct ChatView: View {
     let friend: CloudFriend
@@ -571,6 +598,7 @@ struct ChatView: View {
     @State private var lastTyping = Date.distantPast
     @State private var profileCode: CodeTarget? = nil
     @State private var showCamera = false
+    @State private var viewing: CloudMessage? = nil   // 大きく見る写真
     @FocusState private var focused: Bool
 
     private var list: [CloudMessage] { cloud.messages[friend.uid] ?? [] }
@@ -644,13 +672,18 @@ struct ChatView: View {
         .sheet(item: $profileCode) { PersonProfileSheet(code: $0.id) }
         .fullScreenCover(isPresented: $showCamera) {
             // 投稿と同じ撮影画面（両方撮り・ズーム・前後切り替え）。撮った写真は、この会話に送る
-            CaptureFlow(directSend: { image in
+            CaptureFlow(directSend: { image, front in
                 Task {
-                    do { try await cloud.sendPhoto(to: friend.uid, image: image) }
+                    do { try await cloud.sendPhoto(to: friend.uid, image: image, front: front) }
                     catch { hint = L("写真を送れませんでした") }
                 }
             })
             .environmentObject(PostStore.shared)
+        }
+        .fullScreenCover(item: $viewing) { m in
+            if let photo = m.photo {
+                DMPhotoViewer(main: photo, inset: m.front)
+            }
         }
         .onChange(of: text) { _, value in
             // 入力中を知らせる（2秒に一度まで）
@@ -755,11 +788,15 @@ struct ChatView: View {
                         .foregroundStyle(Hi.dim)
                 }
                 if let photo = m.photo {
-                    Image(uiImage: photo)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 220, height: 293)
+                    // 投稿と同じ両方の写真（内カメラは小さい枠）。押すと大きく見られる（コメントはなし）
+                    DualPhotoView(main: photo, inset: m.front)
+                        .aspectRatio(PhotoShape.ratio, contentMode: .fit)
+                        .frame(width: 220)
                         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                        .contentShape(Rectangle())
+                        .onTapGesture { viewing = m }
+                        .accessibilityAddTraits(.isButton)
+                        .accessibilityLabel(L("写真を大きく見る"))
                 } else {
                     Text(L("写真")).font(.subheadline).foregroundStyle(Hi.dim)
                 }

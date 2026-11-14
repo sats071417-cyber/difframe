@@ -13,12 +13,12 @@ struct SettingsView: View {
     @AppStorage("mute.friendPost") private var mutePost = false
     @AppStorage("mute.message") private var muteMessage = false
     // 撮影
-    @AppStorage("dualCamera") private var dualCamera = false
+    @AppStorage("dualCamera") private var dualCamera = true
     // 投稿の初期設定（次の投稿の、最初の選択になる）
     @AppStorage("shareFriends") private var sendFriends = true
     @AppStorage("sharePublic") private var sendPublic = true
     @AppStorage("publicCommentsDefault") private var publicComments = true
-    @AppStorage("shareLocation") private var addLocation = false
+    @AppStorage("shareLocation") private var addLocation = true
 
     @State private var changingPhone = false
 

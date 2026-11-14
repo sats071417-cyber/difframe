@@ -1,5 +1,5 @@
 {
-  "bundle_id": "com.example.hitokoma",
-  "development_team": "",
-  "app_group": false
+  "bundle_id": "com.diffframe.app",
+  "development_team": "43346945VW",
+  "app_group": true
 }

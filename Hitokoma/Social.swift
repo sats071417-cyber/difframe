@@ -313,9 +313,7 @@ struct CommentSheet: View {
             if ownRecordID != nil, let image {
                 // 自分の投稿：大きく見せる（押すと全画面で、指で拡大できる）
                 Button { viewing = true } label: {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFill()
+                    DualPhotoView(main: image, inset: ownFront)
                         .frame(width: 220, height: 293)
                         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                         .overlay(alignment: .bottomTrailing) {
@@ -364,9 +362,49 @@ struct CommentSheet: View {
                     .accessibilityLabel(emoji)
                 }
             }
+            likersList
         }
         .frame(maxWidth: .infinity)
+        .task { if ownRecordID != nil { await cloud.loadInbox() } }
     }
+
+    /// 自分の投稿の、内カメラの写真（あれば）
+    private var ownFront: UIImage? {
+        guard let ownRecordID, let record = store.records.first(where: { $0.id == ownRecordID }),
+              let file = record.frontPhotoFile else { return nil }
+        return store.image(for: file)
+    }
+
+    /// この投稿にリアクションした人（自分の投稿だけ。通知から読む）
+    private var likers: [CloudNotice] {
+        guard ownRecordID != nil else { return [] }
+        return cloud.notices.filter { $0.type == "like" && $0.postID == postID }
+    }
+
+    @ViewBuilder
+    private var likersList: some View {
+        if ownRecordID != nil {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text(L("リアクション")).font(.caption.weight(.black))
+                    Spacer()
+                    Text("\(likers.count)").font(.caption.weight(.black)).foregroundStyle(Hi.neon)
+                }
+                ForEach(likers) { liker in
+                    HStack(spacing: 8) {
+                        Text(liker.text).font(.subheadline)
+                        Text(liker.fromName.isEmpty ? liker.fromCode : liker.fromName)
+                            .font(.subheadline)
+                            .lineLimit(1)
+                        Spacer(minLength: 0)
+                    }
+                }
+            }
+            .padding(.top, 6)
+            .frame(maxWidth: 260, alignment: .leading)
+        }
+    }
+
 
     private func commentRow(_ comment: Row) -> some View {
         HStack(alignment: .top, spacing: 10) {

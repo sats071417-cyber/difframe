@@ -256,9 +256,9 @@ enum TimeFormat {
             let whole = Int(total)
             return String(format: "%d:%02d:%02d", whole / 3600, (whole % 3600) / 60, whole % 60)
         }
-        let minutes = Int(total) / 60
-        let secs = total - Double(minutes * 60)
-        return String(format: "%d:%04.1f", minutes, secs)
+        // 0.1秒単位で数えてから分けると、秒が 60.0 と表示されるずれが起きない
+        let tenths = Int(total * 10)
+        return String(format: "%d:%02d.%d", tenths / 600, (tenths / 10) % 60, tenths % 10)
     }
 }
 

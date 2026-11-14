@@ -56,6 +56,11 @@ struct CloudProfile: Equatable {
     let handle: String
     let rank: Int?
     let streak: Int?
+    var posts: Int? = nil          // 投稿した枚数
+    var best: Double? = nil        // 自己ベスト（秒）
+    var region: Int? = nil         // 地域の順位
+    var points: Int? = nil         // 今月のポイント
+    var trophies: [String] = []    // 獲得したトロフィー（Trophy.key）
 }
 
 /// サーバーでつながった友達
@@ -152,6 +157,7 @@ final class CloudSync: ObservableObject {
         let url = URL(string: "https://securetoken.googleapis.com/v1/token?key=\(CloudConfig.apiKey)")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
+        request.setValue(CloudConfig.bundleHeader, forHTTPHeaderField: "X-Ios-Bundle-Identifier")
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         request.httpBody = "grant_type=refresh_token&refresh_token=\(token)".data(using: .utf8)
         let json = try await perform(request)
@@ -183,10 +189,18 @@ final class CloudSync: ObservableObject {
         guard let uid else { return }
         let store = PostStore.shared
         let month = MonthlyPoints(records: store.records, month: MonthlyPoints.monthKey(for: Date()))
-        try await patch("codes/\(FriendCode.myID)", fields: [
+        // 他の人のプロフィールに見せる数字（ランク・連続・投稿数・自己ベスト・地域の順位・トロフィー）
+        let best = TimeAttackStats(records: store.records).best
+        let input = AchievementInput(records: store.records, friendCount: friends.count)
+        var fields: [String: FS] = [
             "uid": .string(uid), "name": .string(myName), "handle": .string(MyProfile.handle(myHandle)),
             "rank": .int(month.rank.rawValue), "streak": .int(store.currentStreak()),
-        ])
+            "posts": .int(input.postCount), "points": .int(month.total),
+            "trophies": .array(Trophy.allCases.filter { $0.isUnlocked(input) }.map { FS.string($0.key) }),
+        ]
+        if let best { fields["best"] = .double(best) }
+        if let region = WorldRanking.position(myBest: best) { fields["region"] = .int(region) }
+        try await patch("codes/\(FriendCode.myID)", fields: fields)
     }
 
     /// 自分のアイコンを、相手にも見せられるように置く（変わったときだけ送る）
@@ -225,7 +239,10 @@ final class CloudSync: ObservableObject {
         guard let uid = FS.string(f, "uid") else { throw CloudError.notFound }
         return CloudProfile(uid: uid, code: code, name: FS.string(f, "name") ?? code,
                             handle: FS.string(f, "handle") ?? code,
-                            rank: FS.double(f, "rank").map(Int.init), streak: FS.double(f, "streak").map(Int.init))
+                            rank: FS.double(f, "rank").map(Int.init), streak: FS.double(f, "streak").map(Int.init),
+                            posts: FS.double(f, "posts").map(Int.init), best: FS.double(f, "best"),
+                            region: FS.double(f, "region").map(Int.init), points: FS.double(f, "points").map(Int.init),
+                            trophies: FS.stringArray(f, "trophies"))
     }
 
     // MARK: 友達
@@ -317,7 +334,7 @@ final class CloudSync: ObservableObject {
                 markUploaded(record)
                 if firstTime && record.isForFriends {
                     for friend in friends {
-                        await notify(to: friend.uid, id: "post_\(id)", type: "friendPost", text: record.prompt)
+                        await notify(to: friend.uid, id: "post_\(id)", type: "friendPost", text: record.prompt, postID: id)
                     }
                 }
                 lastError = nil
@@ -521,6 +538,7 @@ final class CloudSync: ObservableObject {
     private func sendAny(_ method: String, url: URL, json: Any?, auth: Bool) async throws -> Any {
         var request = URLRequest(url: url)
         request.httpMethod = method
+        request.setValue(CloudConfig.bundleHeader, forHTTPHeaderField: "X-Ios-Bundle-Identifier")
         request.timeoutInterval = 30
         if let json {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -541,6 +559,8 @@ final class CloudSync: ObservableObject {
     }
 
     private func perform(_ request: URLRequest) async throws -> [String: Any] {
+        var request = request
+        request.setValue(CloudConfig.bundleHeader, forHTTPHeaderField: "X-Ios-Bundle-Identifier")
         let (data, response) = try await URLSession.shared.data(for: request)
         return try Self.parse(data, status: (response as? HTTPURLResponse)?.statusCode ?? 0) as? [String: Any] ?? [:]
     }
@@ -617,6 +637,10 @@ enum FS {
     private static func value(_ fields: [String: Any], _ key: String) -> [String: Any]? { fields[key] as? [String: Any] }
 
     static func string(_ f: [String: Any], _ key: String) -> String? { value(f, key)?["stringValue"] as? String }
+    static func stringArray(_ f: [String: Any], _ key: String) -> [String] {
+        let values = (value(f, key)?["arrayValue"] as? [String: Any])?["values"] as? [[String: Any]] ?? []
+        return values.compactMap { $0["stringValue"] as? String }
+    }
     static func bool(_ f: [String: Any], _ key: String) -> Bool? { value(f, key)?["booleanValue"] as? Bool }
     static func double(_ f: [String: Any], _ key: String) -> Double? {
         guard let v = value(f, key) else { return nil }

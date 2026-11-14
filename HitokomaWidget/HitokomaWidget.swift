@@ -1,5 +1,6 @@
 import WidgetKit
 import SwiftUI
+import ActivityKit
 
 // MARK: - 色
 
@@ -471,11 +472,191 @@ struct WorldWidget: Widget {
     }
 }
 
+// MARK: - ダイナミックアイランド・ロック画面（Live Activity）
+
+/// 表示に使う値をまとめる
+private struct PromptActivityModel {
+    let context: ActivityViewContext<PromptActivityAttributes>
+    var state: PromptActivityAttributes.ContentState { context.state }
+    /// お題が届いたか。届く時刻を過ぎると、システムが「古い表示（stale）」として描き直すので、その時に切り替わる
+    var revealed: Bool { state.revealed || context.isStale || state.fireAt <= Date() }
+    var lang: String? { state.lang }
+    var prompt: String { revealed ? state.prompt : "？" }
+    var glow: Color { promptColors(state.colorName)?.first ?? neon }
+    var icon: String { revealed ? "camera.fill" : "hourglass" }
+    var label: String { revealed ? W.t("今日のお題", lang) : W.t("今日のお題まで", lang) }
+    var link: URL? { URL(string: revealed ? "hitokoma://capture" : "hitokoma://today") }
+}
+
+/// 届く前は届くまでのカウントダウン、届いたあとは届いてからの時間（1時間を超えたら 時:分:秒）
+private struct ActivityTimer: View {
+    let model: PromptActivityModel
+
+    var body: some View {
+        if model.revealed {
+            Text(model.state.fireAt, style: .timer)
+        } else {
+            Text(timerInterval: Date()...max(model.state.fireAt, Date().addingTimeInterval(1)), countsDown: true)
+        }
+    }
+}
+
+/// 黄緑の丸に、いまの状態のアイコン
+private struct ActivityBadge: View {
+    let model: PromptActivityModel
+    var size: CGFloat
+
+    var body: some View {
+        Image(systemName: model.icon)
+            .font(.system(size: size * 0.48, weight: .black))
+            .foregroundStyle(onNeon)
+            .frame(width: size, height: size)
+            .background(Circle().fill(neon))
+    }
+}
+
+/// 「撮る」の黄緑のボタン
+private struct ShootCapsule: View {
+    let lang: String?
+
+    var body: some View {
+        Label(W.t("撮る", lang), systemImage: "camera.fill")
+            .font(.caption.weight(.black))
+            .foregroundStyle(onNeon)
+            .padding(.horizontal, 12).padding(.vertical, 6)
+            .background(Capsule().fill(neon))
+    }
+}
+
+/// ロック画面とバナー
+private struct PromptActivityLockView: View {
+    let model: PromptActivityModel
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 14) {
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 5) {
+                    Text("Difframe").font(.system(size: 12, weight: .black)).foregroundStyle(.white.opacity(0.7))
+                    if model.state.streak > 0 {
+                        Image(systemName: "flame.fill").font(.system(size: 10)).foregroundStyle(.orange)
+                        Text("\(model.state.streak)")
+                            .font(.system(size: 12, weight: .black, design: .rounded))
+                            .foregroundStyle(.white)
+                    }
+                }
+                Text(model.label)
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.65))
+                Text(model.prompt)
+                    .font(.system(size: 30, weight: .black))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+            }
+            Spacer(minLength: 0)
+            VStack(alignment: .trailing, spacing: 6) {
+                ActivityTimer(model: model)
+                    .font(.system(size: 26, weight: .black, design: .monospaced))
+                    .monospacedDigit()
+                    .foregroundStyle(neon)
+                    .multilineTextAlignment(.trailing)
+                    .frame(maxWidth: 140, alignment: .trailing)
+                if model.revealed {
+                    ShootCapsule(lang: model.lang)
+                } else {
+                    Text(W.t("通知と同時にここに出ます", model.lang))
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.6))
+                        .multilineTextAlignment(.trailing)
+                }
+            }
+        }
+        .padding(16)
+        .background(
+            RadialGradient(colors: [model.glow.opacity(0.55), .clear],
+                           center: .bottomTrailing, startRadius: 4, endRadius: 260)
+        )
+    }
+}
+
+struct PromptLiveActivity: Widget {
+    var body: some WidgetConfiguration {
+        ActivityConfiguration(for: PromptActivityAttributes.self) { context in
+            let model = PromptActivityModel(context: context)
+            PromptActivityLockView(model: model)
+                .activityBackgroundTint(Color.black.opacity(0.92))
+                .activitySystemActionForegroundColor(neon)
+                .widgetURL(model.link)
+        } dynamicIsland: { context in
+            let model = PromptActivityModel(context: context)
+            return DynamicIsland {
+                DynamicIslandExpandedRegion(.leading) {
+                    HStack(spacing: 6) {
+                        ActivityBadge(model: model, size: 28)
+                        Text("Difframe")
+                            .font(.system(size: 13, weight: .black))
+                            .foregroundStyle(.white.opacity(0.8))
+                    }
+                    .padding(.leading, 4)
+                }
+                DynamicIslandExpandedRegion(.trailing) {
+                    ActivityTimer(model: model)
+                        .font(.system(size: 20, weight: .black, design: .monospaced))
+                        .monospacedDigit()
+                        .foregroundStyle(neon)
+                        .multilineTextAlignment(.trailing)
+                        .frame(maxWidth: 110, alignment: .trailing)
+                        .padding(.trailing, 4)
+                }
+                DynamicIslandExpandedRegion(.bottom) {
+                    HStack(alignment: .bottom, spacing: 10) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(model.label)
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundStyle(.white.opacity(0.6))
+                            Text(model.prompt)
+                                .font(.system(size: 28, weight: .black))
+                                .foregroundStyle(.white)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.5)
+                        }
+                        Spacer(minLength: 0)
+                        if model.revealed {
+                            ShootCapsule(lang: model.lang)
+                        } else if model.state.streak > 0 {
+                            Label("\(model.state.streak)", systemImage: "flame.fill")
+                                .font(.caption.weight(.black))
+                                .foregroundStyle(.orange)
+                        }
+                    }
+                    .padding(.horizontal, 4)
+                }
+            } compactLeading: {
+                ActivityBadge(model: model, size: 22)
+            } compactTrailing: {
+                ActivityTimer(model: model)
+                    .font(.system(size: 14, weight: .black, design: .monospaced))
+                    .monospacedDigit()
+                    .foregroundStyle(neon)
+                    .multilineTextAlignment(.trailing)
+                    .frame(maxWidth: 58)
+            } minimal: {
+                Image(systemName: model.icon)
+                    .font(.system(size: 11, weight: .black))
+                    .foregroundStyle(neon)
+            }
+            .widgetURL(model.link)
+            .keylineTint(neon)
+        }
+    }
+}
+
 @main
 struct HitokomaWidgets: WidgetBundle {
     var body: some Widget {
         StreakWidget()
         WorldWidget()
+        PromptLiveActivity()
     }
 }
 
@@ -513,6 +694,8 @@ enum W {
         "通知は {n} ごろ": ["en": "Arrives around {n}", "zh": "约 {n} 送达", "ko": "{n}쯤 도착", "es": "Llega sobre las {n}"],
         "通知でお題が届きます": ["en": "The prompt arrives by notification", "zh": "题目会通过通知送达", "ko": "주제는 알림으로 도착해요", "es": "El tema llega por notificación"],
         "届いてから": ["en": "since it arrived", "zh": "送达后", "ko": "도착 후", "es": "desde que llegó"],
+        "今日のお題まで": ["en": "Next prompt in", "zh": "距今日题目还有", "ko": "오늘의 주제까지", "es": "Próximo tema en"],
+        "通知と同時にここに出ます": ["en": "Appears here the moment it's sent", "zh": "送达的同时出现在这里", "ko": "도착하는 순간 여기에 나와요", "es": "Aparece aquí en cuanto llega"],
         "投稿済み {n}": ["en": "Posted {n}", "zh": "已发布 {n}", "ko": "게시함 {n}", "es": "Publicado {n}"],
         "あなた": ["en": "You", "zh": "你", "ko": "나", "es": "Tú"],
         "今日のお題と、届いてからの時間、連続日数を表示します。": ["en": "Shows today's prompt, time since it arrived, and your streak.", "zh": "显示今日题目、送达后的时间和连续天数。", "ko": "오늘의 주제, 도착 후 시간, 연속 일수를 보여줘요.", "es": "Muestra el tema de hoy, el tiempo desde que llegó y tu racha."],

@@ -5,7 +5,7 @@ import UserNotifications
 /// 電源を切っている間も、iOS が時々アプリを起こして新しい通知を確かめ、端末の通知として出す。
 /// 無料で使える方法。いつ起きるかは iOS が決めるので、届く時刻は保証されない（有料のプッシュ通知の代わりではない）。
 enum BackgroundSync {
-    static let taskID = "com.example.hitokoma.refresh"
+    static let taskID = (Bundle.main.bundleIdentifier ?? "com.diffframe.app") + ".refresh"
     private static let seenKey = "seen.notices"
 
     /// アプリの起動時に一度だけ呼ぶ
@@ -34,7 +34,9 @@ enum BackgroundSync {
     private static func handle(_ task: BGAppRefreshTask) {
         schedule()
         let work = Task { @MainActor in
-            for notice in await checkForNew() {
+            // プッシュ通知に登録済みなら、同じ通知はサーバーから届くので、ここでは出さない（二重にならないように）
+            let remote = UserDefaults.standard.bool(forKey: PushRegistration.registeredKey)
+            for notice in await checkForNew() where !remote {
                 let content = UNMutableNotificationContent()
                 content.title = "Difframe"
                 content.body = notice.summary

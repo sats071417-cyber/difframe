@@ -7,576 +7,180 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		0060E20FD30EB48E1B1E669C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 348F0B27A53F2E84D285860E /* Assets.xcassets */; };
-		146FC4FAA9C2A1036509AF82 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36F46F92487F8749EDF51304 /* Theme.swift */; };
-		1D91DB11C64A7C047238D5B5 /* LocalizedEN.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28A0AEF8E06EEA5AA571C336 /* LocalizedEN.swift */; };
-		1EAE3F2B9DC6DA99E51DF144 /* PostStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCB36C75A19454C88A4D7F4E /* PostStore.swift */; };
-		245A1278EA4ED745EBB0F3CA /* NotificationScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97402619C717CD1CB3758743 /* NotificationScheduler.swift */; };
-		2488BB7E0FA3B94F28C2FF28 /* AppGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA0788CBC144160C2488B6F /* AppGroup.swift */; };
-		28AF018ACA33FE3704FB6C9F /* InboxViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 675EC913DCA438B9F1093D42 /* InboxViews.swift */; };
-		2DEA39F7451B786F37453128 /* ShareCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACCFAB1E2E3726AE98564A69 /* ShareCard.swift */; };
-		2E0A38B12DC0A633A4DBFA74 /* CaptureFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72E8A258E3530FFF5E107B33 /* CaptureFlow.swift */; };
-		32063A74524F2D179BEFD4C6 /* FriendCode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 555DD52A508FF2477B3662F2 /* FriendCode.swift */; };
-		342D1140727FD7802241D7D5 /* PromptCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9CD943567646BEC3D6AB8D2 /* PromptCatalog.swift */; };
-		34F2A5868AA6AB7DD89501A1 /* HitokomaWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F4F63F28CE0BC5C6156E2FB9 /* HitokomaWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		3699433A80B1D07BEAA95E88 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9E02E2BB68B06F6DDCB17BC /* SettingsView.swift */; };
-		3800DC30EB8032A536847522 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E2D52B69D1D22AF0C8ACA82 /* ProfileView.swift */; };
-		3A90AB4784285F07010C5FD7 /* Cloud.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61A9C45481F6724DC2039BD8 /* Cloud.swift */; };
-		40BAC00BE3EC095277A1B2EB /* WorldSamples.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D869872CD6FC3A1CB7754D7 /* WorldSamples.swift */; };
-		4CA311B2CF5A0FD3FF690E07 /* SignUpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7ADFA15CB97E338F3662E698 /* SignUpView.swift */; };
-		4F13EFB9B08F8A81843678A9 /* Account.swift in Sources */ = {isa = PBXBuildFile; fileRef = 139542596FAE8BB67B998764 /* Account.swift */; };
-		5097B3473219DBC310DE9A0F /* BackgroundSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44F152283771C23C61694E25 /* BackgroundSync.swift */; };
-		50C9EAADA86C5BAE40D19220 /* WorldView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74FB6D817C3D8CF31632D299 /* WorldView.swift */; };
-		52CC89CF67A852873E84F30F /* Social.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA093F5F3BC9E73B70AE8638 /* Social.swift */; };
-		584F57F040E860B9C2EDB1FA /* CloudViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65C3B876AF1C1979E998370C /* CloudViews.swift */; };
-		5DC26B8C115E0EA33DC65CB0 /* HitokomaWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD6ECADA166B448DAB044D0D /* HitokomaWidget.swift */; };
-		5FEDD82B97F918CC45CF0BFC /* ContactsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 157C3E640451365F290DDBBE /* ContactsView.swift */; };
-		61BFBD0A8AAE8425CC9BDF7A /* CloudConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEBB28A1B1A007FD9BD040F0 /* CloudConfig.swift */; };
-		63D3AB33A6B9B9510F02C569 /* sample_posts.json in Resources */ = {isa = PBXBuildFile; fileRef = 7C812A0CB109743A99F53B8B /* sample_posts.json */; };
-		7FC9C66737790A01008ABC6A /* SamplePosts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 321357488D6E309EDEF1ED08 /* SamplePosts.swift */; };
-		80FDF6DAED84530EDBBBDFCE /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93BE34E477C26DFE247B65AB /* WidgetSnapshot.swift */; };
-		8E1D7C6417E76F62B57253D4 /* GlobeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFFCD9C8354C4D8A2DE04C53 /* GlobeView.swift */; };
-		92810B231B7A930A13B74377 /* CityLocator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63ED0207789D527421EF1C70 /* CityLocator.swift */; };
-		94FCF5DDEADDCF5E947B7A54 /* Achievements.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73F69E7A46116BA0B8A14DA0 /* Achievements.swift */; };
-		9A24FA354CD9AAA8E064E785 /* FriendList.swift in Sources */ = {isa = PBXBuildFile; fileRef = C81F2CCD649B7E7DBE47922D /* FriendList.swift */; };
 		9A70FA297366F295C1B6EC66 /* HitokomaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CA10078FDFD0E54F846BD31 /* HitokomaApp.swift */; };
-		B741A0808D41D3429C7EA177 /* FriendsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74CFFAA2522FD3AE8E486BD1 /* FriendsView.swift */; };
 		B773BE208B03615BDEF28F81 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D9B49E24CB9C159A73EE035 /* ContentView.swift */; };
-		B798595496C310681197DEEC /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C33B7182F8DD00F25DA0DCD /* OnboardingView.swift */; };
-		BCE2D4D959881096C402BFBD /* CalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AA75B42A328ABF81B3A1C10 /* CalendarView.swift */; };
-		BDBAFA489F76624E9D596945 /* WidgetBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 755BE9DE27877540D8CAF82C /* WidgetBridge.swift */; };
-		BDF013EFCF9B246267AE32A2 /* PromptArt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 783F636B3A2147C354A04135 /* PromptArt.swift */; };
-		C110ED4D90302D43429DF81D /* TimelineScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 025A96DEDC8CD3B2F0E12BC4 /* TimelineScreen.swift */; };
-		C3E9A669011F6822A4F8E567 /* LocalizedKO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D3E82CA998D75DFC029D901 /* LocalizedKO.swift */; };
-		D3089E020C276C1E89AD5BA5 /* AppGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA0788CBC144160C2488B6F /* AppGroup.swift */; };
 		D889F7BDF2A6EFD18766E39F /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AE82B8638E40AEB4FFE466A /* TodayView.swift */; };
-		DEB9C07287E451276AEE4BB1 /* CloudInbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCD0C4AA7CEBA4F3EC70BAA7 /* CloudInbox.swift */; };
-		E8F8C47A4CA4F08882045348 /* Localization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A6A7EC4DE00D28BDD13A2D8 /* Localization.swift */; };
+		B741A0808D41D3429C7EA177 /* FriendsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74CFFAA2522FD3AE8E486BD1 /* FriendsView.swift */; };
 		EA9C647AAA3D446FDE56693F /* WorldMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51D5DD735DE8C201728FD409 /* WorldMapView.swift */; };
+		7FC9C66737790A01008ABC6A /* SamplePosts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 321357488D6E309EDEF1ED08 /* SamplePosts.swift */; };
+		1EAE3F2B9DC6DA99E51DF144 /* PostStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCB36C75A19454C88A4D7F4E /* PostStore.swift */; };
+		BCE2D4D959881096C402BFBD /* CalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AA75B42A328ABF81B3A1C10 /* CalendarView.swift */; };
+		245A1278EA4ED745EBB0F3CA /* NotificationScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97402619C717CD1CB3758743 /* NotificationScheduler.swift */; };
+		32063A74524F2D179BEFD4C6 /* FriendCode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 555DD52A508FF2477B3662F2 /* FriendCode.swift */; };
+		BDF013EFCF9B246267AE32A2 /* PromptArt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 783F636B3A2147C354A04135 /* PromptArt.swift */; };
 		ECB4901E3D56FB3DB7F112D5 /* PromptVerifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 216B788B9849F4C6A38FAC1D /* PromptVerifier.swift */; };
-		F4FF8D579E177A91AD61C14E /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93BE34E477C26DFE247B65AB /* WidgetSnapshot.swift */; };
-		F6AD83F1D4F475BF3C4FF762 /* ChatMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = B91424654DAE37C5AE33FB2D /* ChatMedia.swift */; };
+		3800DC30EB8032A536847522 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E2D52B69D1D22AF0C8ACA82 /* ProfileView.swift */; };
+		94FCF5DDEADDCF5E947B7A54 /* Achievements.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73F69E7A46116BA0B8A14DA0 /* Achievements.swift */; };
+		146FC4FAA9C2A1036509AF82 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36F46F92487F8749EDF51304 /* Theme.swift */; };
+		50C9EAADA86C5BAE40D19220 /* WorldView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74FB6D817C3D8CF31632D299 /* WorldView.swift */; };
+		40BAC00BE3EC095277A1B2EB /* WorldSamples.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D869872CD6FC3A1CB7754D7 /* WorldSamples.swift */; };
+		2E0A38B12DC0A633A4DBFA74 /* CaptureFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72E8A258E3530FFF5E107B33 /* CaptureFlow.swift */; };
+		BDBAFA489F76624E9D596945 /* WidgetBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 755BE9DE27877540D8CAF82C /* WidgetBridge.swift */; };
+		B798595496C310681197DEEC /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C33B7182F8DD00F25DA0DCD /* OnboardingView.swift */; };
+		342D1140727FD7802241D7D5 /* PromptCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9CD943567646BEC3D6AB8D2 /* PromptCatalog.swift */; };
+		4F13EFB9B08F8A81843678A9 /* Account.swift in Sources */ = {isa = PBXBuildFile; fileRef = 139542596FAE8BB67B998764 /* Account.swift */; };
+		4CA311B2CF5A0FD3FF690E07 /* SignUpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7ADFA15CB97E338F3662E698 /* SignUpView.swift */; };
+		5FEDD82B97F918CC45CF0BFC /* ContactsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 157C3E640451365F290DDBBE /* ContactsView.swift */; };
+		E8F8C47A4CA4F08882045348 /* Localization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A6A7EC4DE00D28BDD13A2D8 /* Localization.swift */; };
+		1D91DB11C64A7C047238D5B5 /* LocalizedEN.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28A0AEF8E06EEA5AA571C336 /* LocalizedEN.swift */; };
 		F849502ED97C22418500B039 /* LocalizedZH.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6E8031CE5CAA950020B9BC5 /* LocalizedZH.swift */; };
+		C3E9A669011F6822A4F8E567 /* LocalizedKO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D3E82CA998D75DFC029D901 /* LocalizedKO.swift */; };
 		FF4E7E18259697D304870AA4 /* LocalizedES.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F22FBDB42AF866E6FC6E6BE /* LocalizedES.swift */; };
+		C110ED4D90302D43429DF81D /* TimelineScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 025A96DEDC8CD3B2F0E12BC4 /* TimelineScreen.swift */; };
+		52CC89CF67A852873E84F30F /* Social.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA093F5F3BC9E73B70AE8638 /* Social.swift */; };
+		92810B231B7A930A13B74377 /* CityLocator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63ED0207789D527421EF1C70 /* CityLocator.swift */; };
+		8E1D7C6417E76F62B57253D4 /* GlobeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFFCD9C8354C4D8A2DE04C53 /* GlobeView.swift */; };
+		3699433A80B1D07BEAA95E88 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9E02E2BB68B06F6DDCB17BC /* SettingsView.swift */; };
+		2DEA39F7451B786F37453128 /* ShareCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACCFAB1E2E3726AE98564A69 /* ShareCard.swift */; };
+		61BFBD0A8AAE8425CC9BDF7A /* CloudConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEBB28A1B1A007FD9BD040F0 /* CloudConfig.swift */; };
+		3A90AB4784285F07010C5FD7 /* Cloud.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61A9C45481F6724DC2039BD8 /* Cloud.swift */; };
+		584F57F040E860B9C2EDB1FA /* CloudViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65C3B876AF1C1979E998370C /* CloudViews.swift */; };
+		9A24FA354CD9AAA8E064E785 /* FriendList.swift in Sources */ = {isa = PBXBuildFile; fileRef = C81F2CCD649B7E7DBE47922D /* FriendList.swift */; };
+		DEB9C07287E451276AEE4BB1 /* CloudInbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCD0C4AA7CEBA4F3EC70BAA7 /* CloudInbox.swift */; };
+		28AF018ACA33FE3704FB6C9F /* InboxViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 675EC913DCA438B9F1093D42 /* InboxViews.swift */; };
+		F6AD83F1D4F475BF3C4FF762 /* ChatMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = B91424654DAE37C5AE33FB2D /* ChatMedia.swift */; };
+		5097B3473219DBC310DE9A0F /* BackgroundSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44F152283771C23C61694E25 /* BackgroundSync.swift */; };
+		0FAF98CB0FF7AD1AB1BEE5DB /* LiveActivityBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 065DAE00145E22C6F0BD2731 /* LiveActivityBridge.swift */; };
+		D591C290F4A85D239ECEECB2 /* FriendInviteCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 549AC48B1F51B1EDDF7B396B /* FriendInviteCard.swift */; };
+		3B36784F1A73E7F2958605AE /* PushRegistration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 081EDDDBA430A387988DA8E9 /* PushRegistration.swift */; };
+		8993C567DCA0B22BAD00EEC8 /* PushRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD12392A77B80F58A0824820 /* PushRouter.swift */; };
+		63D3AB33A6B9B9510F02C569 /* sample_posts.json in Resources */ = {isa = PBXBuildFile; fileRef = 7C812A0CB109743A99F53B8B /* sample_posts.json */; };
+		0060E20FD30EB48E1B1E669C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 348F0B27A53F2E84D285860E /* Assets.xcassets */; };
+		F4FF8D579E177A91AD61C14E /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93BE34E477C26DFE247B65AB /* WidgetSnapshot.swift */; };
+		80FDF6DAED84530EDBBBDFCE /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93BE34E477C26DFE247B65AB /* WidgetSnapshot.swift */; };
+		D3089E020C276C1E89AD5BA5 /* AppGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA0788CBC144160C2488B6F /* AppGroup.swift */; };
+		2488BB7E0FA3B94F28C2FF28 /* AppGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA0788CBC144160C2488B6F /* AppGroup.swift */; };
+		2A01CA83CC6D4AAF95E373D0 /* PromptActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D6EA7E7CAF9F67EEA620557 /* PromptActivity.swift */; };
+		AA6D1A7081CC20B76DE742C3 /* PromptActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D6EA7E7CAF9F67EEA620557 /* PromptActivity.swift */; };
+		5DC26B8C115E0EA33DC65CB0 /* HitokomaWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD6ECADA166B448DAB044D0D /* HitokomaWidget.swift */; };
+		34F2A5868AA6AB7DD89501A1 /* HitokomaWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F4F63F28CE0BC5C6156E2FB9 /* HitokomaWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		431387EB7262E1CFC79B125E /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 46F86FAA6BBF9AC94A7E4595 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = B142369A0CE622C6AF3E279D;
-			remoteInfo = HitokomaWidget;
-		};
+		431387EB7262E1CFC79B125E /* PBXContainerItemProxy */ = {isa = PBXContainerItemProxy; containerPortal = 46F86FAA6BBF9AC94A7E4595 /* Project object */; proxyType = 1; remoteGlobalIDString = B142369A0CE622C6AF3E279D; remoteInfo = HitokomaWidget; };
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		A171C463B98F9728857281A5 /* Embed Foundation Extensions */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 13;
-			files = (
-				34F2A5868AA6AB7DD89501A1 /* HitokomaWidget.appex in Embed Foundation Extensions */,
-			);
-			name = "Embed Foundation Extensions";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
+		A171C463B98F9728857281A5 /* Embed Foundation Extensions */ = {isa = PBXCopyFilesBuildPhase; buildActionMask = 2147483647; dstPath = ""; dstSubfolderSpec = 13; files = (34F2A5868AA6AB7DD89501A1 /* HitokomaWidget.appex in Embed Foundation Extensions */, ); name = "Embed Foundation Extensions"; runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		025A96DEDC8CD3B2F0E12BC4 /* TimelineScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineScreen.swift; sourceTree = "<group>"; };
-		139542596FAE8BB67B998764 /* Account.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Account.swift; sourceTree = "<group>"; };
-		157C3E640451365F290DDBBE /* ContactsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactsView.swift; sourceTree = "<group>"; };
+		99006388588CE7D539A04F10 /* Hitokoma.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Hitokoma.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F4F63F28CE0BC5C6156E2FB9 /* HitokomaWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = HitokomaWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		1CA10078FDFD0E54F846BD31 /* HitokomaApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HitokomaApp.swift; sourceTree = "<group>"; };
 		1D9B49E24CB9C159A73EE035 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		216B788B9849F4C6A38FAC1D /* PromptVerifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptVerifier.swift; sourceTree = "<group>"; };
-		28A0AEF8E06EEA5AA571C336 /* LocalizedEN.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizedEN.swift; sourceTree = "<group>"; };
-		321357488D6E309EDEF1ED08 /* SamplePosts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SamplePosts.swift; sourceTree = "<group>"; };
-		348F0B27A53F2E84D285860E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		36F46F92487F8749EDF51304 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
-		44F152283771C23C61694E25 /* BackgroundSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundSync.swift; sourceTree = "<group>"; };
-		4E2D52B69D1D22AF0C8ACA82 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
-		51D5DD735DE8C201728FD409 /* WorldMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldMapView.swift; sourceTree = "<group>"; };
-		555DD52A508FF2477B3662F2 /* FriendCode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendCode.swift; sourceTree = "<group>"; };
-		61A9C45481F6724DC2039BD8 /* Cloud.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Cloud.swift; sourceTree = "<group>"; };
-		63ED0207789D527421EF1C70 /* CityLocator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CityLocator.swift; sourceTree = "<group>"; };
-		65C3B876AF1C1979E998370C /* CloudViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudViews.swift; sourceTree = "<group>"; };
-		675EC913DCA438B9F1093D42 /* InboxViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxViews.swift; sourceTree = "<group>"; };
-		6A6A7EC4DE00D28BDD13A2D8 /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
-		6AA75B42A328ABF81B3A1C10 /* CalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarView.swift; sourceTree = "<group>"; };
-		6D869872CD6FC3A1CB7754D7 /* WorldSamples.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldSamples.swift; sourceTree = "<group>"; };
-		6F22FBDB42AF866E6FC6E6BE /* LocalizedES.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizedES.swift; sourceTree = "<group>"; };
-		72E8A258E3530FFF5E107B33 /* CaptureFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureFlow.swift; sourceTree = "<group>"; };
-		73F69E7A46116BA0B8A14DA0 /* Achievements.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Achievements.swift; sourceTree = "<group>"; };
-		74CFFAA2522FD3AE8E486BD1 /* FriendsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendsView.swift; sourceTree = "<group>"; };
-		74FB6D817C3D8CF31632D299 /* WorldView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldView.swift; sourceTree = "<group>"; };
-		755BE9DE27877540D8CAF82C /* WidgetBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetBridge.swift; sourceTree = "<group>"; };
-		783F636B3A2147C354A04135 /* PromptArt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptArt.swift; sourceTree = "<group>"; };
-		7ADFA15CB97E338F3662E698 /* SignUpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignUpView.swift; sourceTree = "<group>"; };
 		7AE82B8638E40AEB4FFE466A /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayView.swift; sourceTree = "<group>"; };
-		7C812A0CB109743A99F53B8B /* sample_posts.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = sample_posts.json; sourceTree = "<group>"; };
-		8C33B7182F8DD00F25DA0DCD /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
-		8D3E82CA998D75DFC029D901 /* LocalizedKO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizedKO.swift; sourceTree = "<group>"; };
-		93BE34E477C26DFE247B65AB /* WidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSnapshot.swift; sourceTree = "<group>"; };
-		97402619C717CD1CB3758743 /* NotificationScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationScheduler.swift; sourceTree = "<group>"; };
-		99006388588CE7D539A04F10 /* Hitokoma.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Hitokoma.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		ACCFAB1E2E3726AE98564A69 /* ShareCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareCard.swift; sourceTree = "<group>"; };
-		B91424654DAE37C5AE33FB2D /* ChatMedia.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatMedia.swift; sourceTree = "<group>"; };
-		B9CD943567646BEC3D6AB8D2 /* PromptCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptCatalog.swift; sourceTree = "<group>"; };
-		BA093F5F3BC9E73B70AE8638 /* Social.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Social.swift; sourceTree = "<group>"; };
+		74CFFAA2522FD3AE8E486BD1 /* FriendsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendsView.swift; sourceTree = "<group>"; };
+		51D5DD735DE8C201728FD409 /* WorldMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldMapView.swift; sourceTree = "<group>"; };
+		321357488D6E309EDEF1ED08 /* SamplePosts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SamplePosts.swift; sourceTree = "<group>"; };
 		BCB36C75A19454C88A4D7F4E /* PostStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostStore.swift; sourceTree = "<group>"; };
-		C81F2CCD649B7E7DBE47922D /* FriendList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendList.swift; sourceTree = "<group>"; };
-		CEBB28A1B1A007FD9BD040F0 /* CloudConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudConfig.swift; sourceTree = "<group>"; };
-		D9E02E2BB68B06F6DDCB17BC /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
-		DCD0C4AA7CEBA4F3EC70BAA7 /* CloudInbox.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudInbox.swift; sourceTree = "<group>"; };
-		DD6ECADA166B448DAB044D0D /* HitokomaWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HitokomaWidget.swift; sourceTree = "<group>"; };
-		EFFCD9C8354C4D8A2DE04C53 /* GlobeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobeView.swift; sourceTree = "<group>"; };
-		F4F63F28CE0BC5C6156E2FB9 /* HitokomaWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = HitokomaWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		6AA75B42A328ABF81B3A1C10 /* CalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarView.swift; sourceTree = "<group>"; };
+		97402619C717CD1CB3758743 /* NotificationScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationScheduler.swift; sourceTree = "<group>"; };
+		555DD52A508FF2477B3662F2 /* FriendCode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendCode.swift; sourceTree = "<group>"; };
+		783F636B3A2147C354A04135 /* PromptArt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptArt.swift; sourceTree = "<group>"; };
+		216B788B9849F4C6A38FAC1D /* PromptVerifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptVerifier.swift; sourceTree = "<group>"; };
+		4E2D52B69D1D22AF0C8ACA82 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
+		73F69E7A46116BA0B8A14DA0 /* Achievements.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Achievements.swift; sourceTree = "<group>"; };
+		36F46F92487F8749EDF51304 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		74FB6D817C3D8CF31632D299 /* WorldView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldView.swift; sourceTree = "<group>"; };
+		6D869872CD6FC3A1CB7754D7 /* WorldSamples.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldSamples.swift; sourceTree = "<group>"; };
+		72E8A258E3530FFF5E107B33 /* CaptureFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureFlow.swift; sourceTree = "<group>"; };
+		755BE9DE27877540D8CAF82C /* WidgetBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetBridge.swift; sourceTree = "<group>"; };
+		8C33B7182F8DD00F25DA0DCD /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		B9CD943567646BEC3D6AB8D2 /* PromptCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptCatalog.swift; sourceTree = "<group>"; };
+		139542596FAE8BB67B998764 /* Account.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Account.swift; sourceTree = "<group>"; };
+		7ADFA15CB97E338F3662E698 /* SignUpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignUpView.swift; sourceTree = "<group>"; };
+		157C3E640451365F290DDBBE /* ContactsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactsView.swift; sourceTree = "<group>"; };
+		6A6A7EC4DE00D28BDD13A2D8 /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
+		28A0AEF8E06EEA5AA571C336 /* LocalizedEN.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizedEN.swift; sourceTree = "<group>"; };
 		F6E8031CE5CAA950020B9BC5 /* LocalizedZH.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizedZH.swift; sourceTree = "<group>"; };
+		8D3E82CA998D75DFC029D901 /* LocalizedKO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizedKO.swift; sourceTree = "<group>"; };
+		6F22FBDB42AF866E6FC6E6BE /* LocalizedES.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizedES.swift; sourceTree = "<group>"; };
+		025A96DEDC8CD3B2F0E12BC4 /* TimelineScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineScreen.swift; sourceTree = "<group>"; };
+		BA093F5F3BC9E73B70AE8638 /* Social.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Social.swift; sourceTree = "<group>"; };
+		63ED0207789D527421EF1C70 /* CityLocator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CityLocator.swift; sourceTree = "<group>"; };
+		EFFCD9C8354C4D8A2DE04C53 /* GlobeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobeView.swift; sourceTree = "<group>"; };
+		D9E02E2BB68B06F6DDCB17BC /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		ACCFAB1E2E3726AE98564A69 /* ShareCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareCard.swift; sourceTree = "<group>"; };
+		CEBB28A1B1A007FD9BD040F0 /* CloudConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudConfig.swift; sourceTree = "<group>"; };
+		61A9C45481F6724DC2039BD8 /* Cloud.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Cloud.swift; sourceTree = "<group>"; };
+		65C3B876AF1C1979E998370C /* CloudViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudViews.swift; sourceTree = "<group>"; };
+		C81F2CCD649B7E7DBE47922D /* FriendList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendList.swift; sourceTree = "<group>"; };
+		DCD0C4AA7CEBA4F3EC70BAA7 /* CloudInbox.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudInbox.swift; sourceTree = "<group>"; };
+		675EC913DCA438B9F1093D42 /* InboxViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxViews.swift; sourceTree = "<group>"; };
+		B91424654DAE37C5AE33FB2D /* ChatMedia.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatMedia.swift; sourceTree = "<group>"; };
+		44F152283771C23C61694E25 /* BackgroundSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundSync.swift; sourceTree = "<group>"; };
+		065DAE00145E22C6F0BD2731 /* LiveActivityBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityBridge.swift; sourceTree = "<group>"; };
+		549AC48B1F51B1EDDF7B396B /* FriendInviteCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendInviteCard.swift; sourceTree = "<group>"; };
+		081EDDDBA430A387988DA8E9 /* PushRegistration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushRegistration.swift; sourceTree = "<group>"; };
+		BD12392A77B80F58A0824820 /* PushRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushRouter.swift; sourceTree = "<group>"; };
+		DD6ECADA166B448DAB044D0D /* HitokomaWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HitokomaWidget.swift; sourceTree = "<group>"; };
+		93BE34E477C26DFE247B65AB /* WidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSnapshot.swift; sourceTree = "<group>"; };
 		FDA0788CBC144160C2488B6F /* AppGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppGroup.swift; sourceTree = "<group>"; };
+		8D6EA7E7CAF9F67EEA620557 /* PromptActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptActivity.swift; sourceTree = "<group>"; };
+		7C812A0CB109743A99F53B8B /* sample_posts.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = sample_posts.json; sourceTree = "<group>"; };
+		348F0B27A53F2E84D285860E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		29B2D46AA747A59804D46E1F /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		B16A82EEF29A51E5176A1584 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
+		29B2D46AA747A59804D46E1F /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		B16A82EEF29A51E5176A1584 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		71D2E56247FE75C3DCE9B609 = {
-			isa = PBXGroup;
-			children = (
-				AB8D408CB1881C666AAC0831 /* Hitokoma */,
-				DE59ADA3DBA6A74DBC12560B /* HitokomaWidget */,
-				9B8EA7C3EDD85BDD3B598AA8 /* Shared */,
-				F5BF48AA40CAD7891EB709FC /* Products */,
-			);
-			sourceTree = "<group>";
-		};
-		9B8EA7C3EDD85BDD3B598AA8 /* Shared */ = {
-			isa = PBXGroup;
-			children = (
-				93BE34E477C26DFE247B65AB /* WidgetSnapshot.swift */,
-				FDA0788CBC144160C2488B6F /* AppGroup.swift */,
-			);
-			path = Shared;
-			sourceTree = "<group>";
-		};
-		AB8D408CB1881C666AAC0831 /* Hitokoma */ = {
-			isa = PBXGroup;
-			children = (
-				1CA10078FDFD0E54F846BD31 /* HitokomaApp.swift */,
-				1D9B49E24CB9C159A73EE035 /* ContentView.swift */,
-				7AE82B8638E40AEB4FFE466A /* TodayView.swift */,
-				74CFFAA2522FD3AE8E486BD1 /* FriendsView.swift */,
-				51D5DD735DE8C201728FD409 /* WorldMapView.swift */,
-				321357488D6E309EDEF1ED08 /* SamplePosts.swift */,
-				BCB36C75A19454C88A4D7F4E /* PostStore.swift */,
-				6AA75B42A328ABF81B3A1C10 /* CalendarView.swift */,
-				97402619C717CD1CB3758743 /* NotificationScheduler.swift */,
-				555DD52A508FF2477B3662F2 /* FriendCode.swift */,
-				783F636B3A2147C354A04135 /* PromptArt.swift */,
-				216B788B9849F4C6A38FAC1D /* PromptVerifier.swift */,
-				4E2D52B69D1D22AF0C8ACA82 /* ProfileView.swift */,
-				73F69E7A46116BA0B8A14DA0 /* Achievements.swift */,
-				36F46F92487F8749EDF51304 /* Theme.swift */,
-				74FB6D817C3D8CF31632D299 /* WorldView.swift */,
-				6D869872CD6FC3A1CB7754D7 /* WorldSamples.swift */,
-				72E8A258E3530FFF5E107B33 /* CaptureFlow.swift */,
-				755BE9DE27877540D8CAF82C /* WidgetBridge.swift */,
-				8C33B7182F8DD00F25DA0DCD /* OnboardingView.swift */,
-				B9CD943567646BEC3D6AB8D2 /* PromptCatalog.swift */,
-				139542596FAE8BB67B998764 /* Account.swift */,
-				7ADFA15CB97E338F3662E698 /* SignUpView.swift */,
-				157C3E640451365F290DDBBE /* ContactsView.swift */,
-				6A6A7EC4DE00D28BDD13A2D8 /* Localization.swift */,
-				28A0AEF8E06EEA5AA571C336 /* LocalizedEN.swift */,
-				F6E8031CE5CAA950020B9BC5 /* LocalizedZH.swift */,
-				8D3E82CA998D75DFC029D901 /* LocalizedKO.swift */,
-				6F22FBDB42AF866E6FC6E6BE /* LocalizedES.swift */,
-				025A96DEDC8CD3B2F0E12BC4 /* TimelineScreen.swift */,
-				BA093F5F3BC9E73B70AE8638 /* Social.swift */,
-				63ED0207789D527421EF1C70 /* CityLocator.swift */,
-				EFFCD9C8354C4D8A2DE04C53 /* GlobeView.swift */,
-				D9E02E2BB68B06F6DDCB17BC /* SettingsView.swift */,
-				ACCFAB1E2E3726AE98564A69 /* ShareCard.swift */,
-				CEBB28A1B1A007FD9BD040F0 /* CloudConfig.swift */,
-				61A9C45481F6724DC2039BD8 /* Cloud.swift */,
-				65C3B876AF1C1979E998370C /* CloudViews.swift */,
-				C81F2CCD649B7E7DBE47922D /* FriendList.swift */,
-				DCD0C4AA7CEBA4F3EC70BAA7 /* CloudInbox.swift */,
-				675EC913DCA438B9F1093D42 /* InboxViews.swift */,
-				B91424654DAE37C5AE33FB2D /* ChatMedia.swift */,
-				44F152283771C23C61694E25 /* BackgroundSync.swift */,
-				7C812A0CB109743A99F53B8B /* sample_posts.json */,
-				348F0B27A53F2E84D285860E /* Assets.xcassets */,
-			);
-			path = Hitokoma;
-			sourceTree = "<group>";
-		};
-		DE59ADA3DBA6A74DBC12560B /* HitokomaWidget */ = {
-			isa = PBXGroup;
-			children = (
-				DD6ECADA166B448DAB044D0D /* HitokomaWidget.swift */,
-			);
-			path = HitokomaWidget;
-			sourceTree = "<group>";
-		};
-		F5BF48AA40CAD7891EB709FC /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				99006388588CE7D539A04F10 /* Hitokoma.app */,
-				F4F63F28CE0BC5C6156E2FB9 /* HitokomaWidget.appex */,
-			);
-			name = Products;
-			sourceTree = "<group>";
-		};
+		71D2E56247FE75C3DCE9B609 = {isa = PBXGroup; children = (AB8D408CB1881C666AAC0831 /* Hitokoma */, DE59ADA3DBA6A74DBC12560B /* HitokomaWidget */, 9B8EA7C3EDD85BDD3B598AA8 /* Shared */, F5BF48AA40CAD7891EB709FC /* Products */, ); sourceTree = "<group>"; };
+		AB8D408CB1881C666AAC0831 /* Hitokoma */ = {isa = PBXGroup; children = (1CA10078FDFD0E54F846BD31 /* HitokomaApp.swift */, 1D9B49E24CB9C159A73EE035 /* ContentView.swift */, 7AE82B8638E40AEB4FFE466A /* TodayView.swift */, 74CFFAA2522FD3AE8E486BD1 /* FriendsView.swift */, 51D5DD735DE8C201728FD409 /* WorldMapView.swift */, 321357488D6E309EDEF1ED08 /* SamplePosts.swift */, BCB36C75A19454C88A4D7F4E /* PostStore.swift */, 6AA75B42A328ABF81B3A1C10 /* CalendarView.swift */, 97402619C717CD1CB3758743 /* NotificationScheduler.swift */, 555DD52A508FF2477B3662F2 /* FriendCode.swift */, 783F636B3A2147C354A04135 /* PromptArt.swift */, 216B788B9849F4C6A38FAC1D /* PromptVerifier.swift */, 4E2D52B69D1D22AF0C8ACA82 /* ProfileView.swift */, 73F69E7A46116BA0B8A14DA0 /* Achievements.swift */, 36F46F92487F8749EDF51304 /* Theme.swift */, 74FB6D817C3D8CF31632D299 /* WorldView.swift */, 6D869872CD6FC3A1CB7754D7 /* WorldSamples.swift */, 72E8A258E3530FFF5E107B33 /* CaptureFlow.swift */, 755BE9DE27877540D8CAF82C /* WidgetBridge.swift */, 8C33B7182F8DD00F25DA0DCD /* OnboardingView.swift */, B9CD943567646BEC3D6AB8D2 /* PromptCatalog.swift */, 139542596FAE8BB67B998764 /* Account.swift */, 7ADFA15CB97E338F3662E698 /* SignUpView.swift */, 157C3E640451365F290DDBBE /* ContactsView.swift */, 6A6A7EC4DE00D28BDD13A2D8 /* Localization.swift */, 28A0AEF8E06EEA5AA571C336 /* LocalizedEN.swift */, F6E8031CE5CAA950020B9BC5 /* LocalizedZH.swift */, 8D3E82CA998D75DFC029D901 /* LocalizedKO.swift */, 6F22FBDB42AF866E6FC6E6BE /* LocalizedES.swift */, 025A96DEDC8CD3B2F0E12BC4 /* TimelineScreen.swift */, BA093F5F3BC9E73B70AE8638 /* Social.swift */, 63ED0207789D527421EF1C70 /* CityLocator.swift */, EFFCD9C8354C4D8A2DE04C53 /* GlobeView.swift */, D9E02E2BB68B06F6DDCB17BC /* SettingsView.swift */, ACCFAB1E2E3726AE98564A69 /* ShareCard.swift */, CEBB28A1B1A007FD9BD040F0 /* CloudConfig.swift */, 61A9C45481F6724DC2039BD8 /* Cloud.swift */, 65C3B876AF1C1979E998370C /* CloudViews.swift */, C81F2CCD649B7E7DBE47922D /* FriendList.swift */, DCD0C4AA7CEBA4F3EC70BAA7 /* CloudInbox.swift */, 675EC913DCA438B9F1093D42 /* InboxViews.swift */, B91424654DAE37C5AE33FB2D /* ChatMedia.swift */, 44F152283771C23C61694E25 /* BackgroundSync.swift */, 065DAE00145E22C6F0BD2731 /* LiveActivityBridge.swift */, 549AC48B1F51B1EDDF7B396B /* FriendInviteCard.swift */, 081EDDDBA430A387988DA8E9 /* PushRegistration.swift */, BD12392A77B80F58A0824820 /* PushRouter.swift */, 7C812A0CB109743A99F53B8B /* sample_posts.json */, 348F0B27A53F2E84D285860E /* Assets.xcassets */, ); path = Hitokoma; sourceTree = "<group>"; };
+		DE59ADA3DBA6A74DBC12560B /* HitokomaWidget */ = {isa = PBXGroup; children = (DD6ECADA166B448DAB044D0D /* HitokomaWidget.swift */, ); path = HitokomaWidget; sourceTree = "<group>"; };
+		9B8EA7C3EDD85BDD3B598AA8 /* Shared */ = {isa = PBXGroup; children = (93BE34E477C26DFE247B65AB /* WidgetSnapshot.swift */, FDA0788CBC144160C2488B6F /* AppGroup.swift */, 8D6EA7E7CAF9F67EEA620557 /* PromptActivity.swift */, ); path = Shared; sourceTree = "<group>"; };
+		F5BF48AA40CAD7891EB709FC /* Products */ = {isa = PBXGroup; children = (99006388588CE7D539A04F10 /* Hitokoma.app */, F4F63F28CE0BC5C6156E2FB9 /* HitokomaWidget.appex */, ); name = Products; sourceTree = "<group>"; };
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		42AEFBAE01D2DFD981F7DA7D /* Hitokoma */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = AFD04581184175117C78D9AC /* Build configuration list for PBXNativeTarget "Hitokoma" */;
-			buildPhases = (
-				E7209FB05162B7572F88D05E /* Sources */,
-				29B2D46AA747A59804D46E1F /* Frameworks */,
-				66F8606E9F0A136E2228EBCB /* Resources */,
-				A171C463B98F9728857281A5 /* Embed Foundation Extensions */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				E54DEBD65D8142E7785275AA /* PBXTargetDependency */,
-			);
-			name = Hitokoma;
-			productName = Hitokoma;
-			productReference = 99006388588CE7D539A04F10 /* Hitokoma.app */;
-			productType = "com.apple.product-type.application";
-		};
-		B142369A0CE622C6AF3E279D /* HitokomaWidget */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = C44016C1673E9782B9721C5F /* Build configuration list for PBXNativeTarget "HitokomaWidget" */;
-			buildPhases = (
-				D4FA11219DB518A608319EC3 /* Sources */,
-				B16A82EEF29A51E5176A1584 /* Frameworks */,
-				12C2A7D9D7420AB1E8C0072B /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = HitokomaWidget;
-			productName = HitokomaWidget;
-			productReference = F4F63F28CE0BC5C6156E2FB9 /* HitokomaWidget.appex */;
-			productType = "com.apple.product-type.app-extension";
-		};
+		42AEFBAE01D2DFD981F7DA7D /* Hitokoma */ = {isa = PBXNativeTarget; buildConfigurationList = AFD04581184175117C78D9AC; buildPhases = (E7209FB05162B7572F88D05E /* Sources */, 29B2D46AA747A59804D46E1F /* Frameworks */, 66F8606E9F0A136E2228EBCB /* Resources */, A171C463B98F9728857281A5 /* Embed Foundation Extensions */, ); buildRules = (); dependencies = (E54DEBD65D8142E7785275AA /* PBXTargetDependency */, ); name = Hitokoma; productName = Hitokoma; productReference = 99006388588CE7D539A04F10 /* Hitokoma.app */; productType = "com.apple.product-type.application"; };
+		B142369A0CE622C6AF3E279D /* HitokomaWidget */ = {isa = PBXNativeTarget; buildConfigurationList = C44016C1673E9782B9721C5F; buildPhases = (D4FA11219DB518A608319EC3 /* Sources */, B16A82EEF29A51E5176A1584 /* Frameworks */, 12C2A7D9D7420AB1E8C0072B /* Resources */, ); buildRules = (); dependencies = (); name = HitokomaWidget; productName = HitokomaWidget; productReference = F4F63F28CE0BC5C6156E2FB9 /* HitokomaWidget.appex */; productType = "com.apple.product-type.app-extension"; };
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		46F86FAA6BBF9AC94A7E4595 /* Project object */ = {
-			isa = PBXProject;
-			attributes = {
-				BuildIndependentTargetsInParallel = 1;
-				LastUpgradeCheck = 1600;
-			};
-			buildConfigurationList = A6392603704BC67DABF5ACDA /* Build configuration list for PBXProject "Hitokoma" */;
-			compatibilityVersion = "Xcode 14.0";
-			developmentRegion = ja;
-			hasScannedForEncodings = 0;
-			knownRegions = (
-				ja,
-				en,
-				Base,
-			);
-			mainGroup = 71D2E56247FE75C3DCE9B609;
-			productRefGroup = F5BF48AA40CAD7891EB709FC /* Products */;
-			projectDirPath = "";
-			projectRoot = "";
-			targets = (
-				42AEFBAE01D2DFD981F7DA7D /* Hitokoma */,
-				B142369A0CE622C6AF3E279D /* HitokomaWidget */,
-			);
-		};
+		46F86FAA6BBF9AC94A7E4595 /* Project object */ = {isa = PBXProject; attributes = {BuildIndependentTargetsInParallel = 1; LastUpgradeCheck = 1600; }; buildConfigurationList = A6392603704BC67DABF5ACDA; compatibilityVersion = "Xcode 14.0"; developmentRegion = ja; hasScannedForEncodings = 0; knownRegions = (ja, en, Base, ); mainGroup = 71D2E56247FE75C3DCE9B609; productRefGroup = F5BF48AA40CAD7891EB709FC /* Products */; projectDirPath = ""; projectRoot = ""; targets = (42AEFBAE01D2DFD981F7DA7D /* Hitokoma */, B142369A0CE622C6AF3E279D /* HitokomaWidget */, ); };
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		12C2A7D9D7420AB1E8C0072B /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		66F8606E9F0A136E2228EBCB /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				63D3AB33A6B9B9510F02C569 /* sample_posts.json in Resources */,
-				0060E20FD30EB48E1B1E669C /* Assets.xcassets in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
+		66F8606E9F0A136E2228EBCB /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (63D3AB33A6B9B9510F02C569 /* sample_posts.json in Resources */, 0060E20FD30EB48E1B1E669C /* Assets.xcassets in Resources */, ); runOnlyForDeploymentPostprocessing = 0; };
+		12C2A7D9D7420AB1E8C0072B /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		D4FA11219DB518A608319EC3 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				5DC26B8C115E0EA33DC65CB0 /* HitokomaWidget.swift in Sources */,
-				80FDF6DAED84530EDBBBDFCE /* WidgetSnapshot.swift in Sources */,
-				2488BB7E0FA3B94F28C2FF28 /* AppGroup.swift in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		E7209FB05162B7572F88D05E /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				9A70FA297366F295C1B6EC66 /* HitokomaApp.swift in Sources */,
-				B773BE208B03615BDEF28F81 /* ContentView.swift in Sources */,
-				D889F7BDF2A6EFD18766E39F /* TodayView.swift in Sources */,
-				B741A0808D41D3429C7EA177 /* FriendsView.swift in Sources */,
-				EA9C647AAA3D446FDE56693F /* WorldMapView.swift in Sources */,
-				7FC9C66737790A01008ABC6A /* SamplePosts.swift in Sources */,
-				1EAE3F2B9DC6DA99E51DF144 /* PostStore.swift in Sources */,
-				BCE2D4D959881096C402BFBD /* CalendarView.swift in Sources */,
-				245A1278EA4ED745EBB0F3CA /* NotificationScheduler.swift in Sources */,
-				32063A74524F2D179BEFD4C6 /* FriendCode.swift in Sources */,
-				BDF013EFCF9B246267AE32A2 /* PromptArt.swift in Sources */,
-				ECB4901E3D56FB3DB7F112D5 /* PromptVerifier.swift in Sources */,
-				3800DC30EB8032A536847522 /* ProfileView.swift in Sources */,
-				94FCF5DDEADDCF5E947B7A54 /* Achievements.swift in Sources */,
-				146FC4FAA9C2A1036509AF82 /* Theme.swift in Sources */,
-				50C9EAADA86C5BAE40D19220 /* WorldView.swift in Sources */,
-				40BAC00BE3EC095277A1B2EB /* WorldSamples.swift in Sources */,
-				2E0A38B12DC0A633A4DBFA74 /* CaptureFlow.swift in Sources */,
-				BDBAFA489F76624E9D596945 /* WidgetBridge.swift in Sources */,
-				B798595496C310681197DEEC /* OnboardingView.swift in Sources */,
-				342D1140727FD7802241D7D5 /* PromptCatalog.swift in Sources */,
-				4F13EFB9B08F8A81843678A9 /* Account.swift in Sources */,
-				4CA311B2CF5A0FD3FF690E07 /* SignUpView.swift in Sources */,
-				5FEDD82B97F918CC45CF0BFC /* ContactsView.swift in Sources */,
-				E8F8C47A4CA4F08882045348 /* Localization.swift in Sources */,
-				1D91DB11C64A7C047238D5B5 /* LocalizedEN.swift in Sources */,
-				F849502ED97C22418500B039 /* LocalizedZH.swift in Sources */,
-				C3E9A669011F6822A4F8E567 /* LocalizedKO.swift in Sources */,
-				FF4E7E18259697D304870AA4 /* LocalizedES.swift in Sources */,
-				C110ED4D90302D43429DF81D /* TimelineScreen.swift in Sources */,
-				52CC89CF67A852873E84F30F /* Social.swift in Sources */,
-				92810B231B7A930A13B74377 /* CityLocator.swift in Sources */,
-				8E1D7C6417E76F62B57253D4 /* GlobeView.swift in Sources */,
-				3699433A80B1D07BEAA95E88 /* SettingsView.swift in Sources */,
-				2DEA39F7451B786F37453128 /* ShareCard.swift in Sources */,
-				61BFBD0A8AAE8425CC9BDF7A /* CloudConfig.swift in Sources */,
-				3A90AB4784285F07010C5FD7 /* Cloud.swift in Sources */,
-				584F57F040E860B9C2EDB1FA /* CloudViews.swift in Sources */,
-				9A24FA354CD9AAA8E064E785 /* FriendList.swift in Sources */,
-				DEB9C07287E451276AEE4BB1 /* CloudInbox.swift in Sources */,
-				28AF018ACA33FE3704FB6C9F /* InboxViews.swift in Sources */,
-				F6AD83F1D4F475BF3C4FF762 /* ChatMedia.swift in Sources */,
-				5097B3473219DBC310DE9A0F /* BackgroundSync.swift in Sources */,
-				F4FF8D579E177A91AD61C14E /* WidgetSnapshot.swift in Sources */,
-				D3089E020C276C1E89AD5BA5 /* AppGroup.swift in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
+		E7209FB05162B7572F88D05E /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (9A70FA297366F295C1B6EC66 /* HitokomaApp.swift in Sources */, B773BE208B03615BDEF28F81 /* ContentView.swift in Sources */, D889F7BDF2A6EFD18766E39F /* TodayView.swift in Sources */, B741A0808D41D3429C7EA177 /* FriendsView.swift in Sources */, EA9C647AAA3D446FDE56693F /* WorldMapView.swift in Sources */, 7FC9C66737790A01008ABC6A /* SamplePosts.swift in Sources */, 1EAE3F2B9DC6DA99E51DF144 /* PostStore.swift in Sources */, BCE2D4D959881096C402BFBD /* CalendarView.swift in Sources */, 245A1278EA4ED745EBB0F3CA /* NotificationScheduler.swift in Sources */, 32063A74524F2D179BEFD4C6 /* FriendCode.swift in Sources */, BDF013EFCF9B246267AE32A2 /* PromptArt.swift in Sources */, ECB4901E3D56FB3DB7F112D5 /* PromptVerifier.swift in Sources */, 3800DC30EB8032A536847522 /* ProfileView.swift in Sources */, 94FCF5DDEADDCF5E947B7A54 /* Achievements.swift in Sources */, 146FC4FAA9C2A1036509AF82 /* Theme.swift in Sources */, 50C9EAADA86C5BAE40D19220 /* WorldView.swift in Sources */, 40BAC00BE3EC095277A1B2EB /* WorldSamples.swift in Sources */, 2E0A38B12DC0A633A4DBFA74 /* CaptureFlow.swift in Sources */, BDBAFA489F76624E9D596945 /* WidgetBridge.swift in Sources */, B798595496C310681197DEEC /* OnboardingView.swift in Sources */, 342D1140727FD7802241D7D5 /* PromptCatalog.swift in Sources */, 4F13EFB9B08F8A81843678A9 /* Account.swift in Sources */, 4CA311B2CF5A0FD3FF690E07 /* SignUpView.swift in Sources */, 5FEDD82B97F918CC45CF0BFC /* ContactsView.swift in Sources */, E8F8C47A4CA4F08882045348 /* Localization.swift in Sources */, 1D91DB11C64A7C047238D5B5 /* LocalizedEN.swift in Sources */, F849502ED97C22418500B039 /* LocalizedZH.swift in Sources */, C3E9A669011F6822A4F8E567 /* LocalizedKO.swift in Sources */, FF4E7E18259697D304870AA4 /* LocalizedES.swift in Sources */, C110ED4D90302D43429DF81D /* TimelineScreen.swift in Sources */, 52CC89CF67A852873E84F30F /* Social.swift in Sources */, 92810B231B7A930A13B74377 /* CityLocator.swift in Sources */, 8E1D7C6417E76F62B57253D4 /* GlobeView.swift in Sources */, 3699433A80B1D07BEAA95E88 /* SettingsView.swift in Sources */, 2DEA39F7451B786F37453128 /* ShareCard.swift in Sources */, 61BFBD0A8AAE8425CC9BDF7A /* CloudConfig.swift in Sources */, 3A90AB4784285F07010C5FD7 /* Cloud.swift in Sources */, 584F57F040E860B9C2EDB1FA /* CloudViews.swift in Sources */, 9A24FA354CD9AAA8E064E785 /* FriendList.swift in Sources */, DEB9C07287E451276AEE4BB1 /* CloudInbox.swift in Sources */, 28AF018ACA33FE3704FB6C9F /* InboxViews.swift in Sources */, F6AD83F1D4F475BF3C4FF762 /* ChatMedia.swift in Sources */, 5097B3473219DBC310DE9A0F /* BackgroundSync.swift in Sources */, 0FAF98CB0FF7AD1AB1BEE5DB /* LiveActivityBridge.swift in Sources */, D591C290F4A85D239ECEECB2 /* FriendInviteCard.swift in Sources */, 3B36784F1A73E7F2958605AE /* PushRegistration.swift in Sources */, 8993C567DCA0B22BAD00EEC8 /* PushRouter.swift in Sources */, F4FF8D579E177A91AD61C14E /* WidgetSnapshot.swift in Sources */, D3089E020C276C1E89AD5BA5 /* AppGroup.swift in Sources */, 2A01CA83CC6D4AAF95E373D0 /* PromptActivity.swift in Sources */, ); runOnlyForDeploymentPostprocessing = 0; };
+		D4FA11219DB518A608319EC3 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (5DC26B8C115E0EA33DC65CB0 /* HitokomaWidget.swift in Sources */, 80FDF6DAED84530EDBBBDFCE /* WidgetSnapshot.swift in Sources */, 2488BB7E0FA3B94F28C2FF28 /* AppGroup.swift in Sources */, AA6D1A7081CC20B76DE742C3 /* PromptActivity.swift in Sources */, ); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		E54DEBD65D8142E7785275AA /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = B142369A0CE622C6AF3E279D /* HitokomaWidget */;
-			targetProxy = 431387EB7262E1CFC79B125E /* PBXContainerItemProxy */;
-		};
+		E54DEBD65D8142E7785275AA /* PBXTargetDependency */ = {isa = PBXTargetDependency; target = B142369A0CE622C6AF3E279D /* HitokomaWidget */; targetProxy = 431387EB7262E1CFC79B125E /* PBXContainerItemProxy */; };
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		4DC7B479A29173674AFD7BAC /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				"CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]" = NO;
-				"CODE_SIGNING_REQUIRED[sdk=iphonesimulator*]" = NO;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 43346945VW;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = Hitokoma/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Difframe;
-				INFOPLIST_KEY_NSCameraUsageDescription = "お題に合わせて、その場で写真を撮るために使います。";
-				INFOPLIST_KEY_NSContactsUsageDescription = "友達に招待リンクを送る相手を選ぶために使います。連絡先は端末の外へ送りません。";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "地図であなたのいる場所を示したり、投稿に都市の名前（例：東京）をつけるために使います。正確な位置は送信しません。";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "ボイスメッセージを録音するために使います。";
-				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "自分の投稿を、写真アプリに保存するために使います。";
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.hitokoma;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				SUPPORTS_MACCATALYST = NO;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 1;
-			};
-			name = Release;
-		};
-		51CB9206CDA1600068F77B7A /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				"CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]" = NO;
-				"CODE_SIGNING_REQUIRED[sdk=iphonesimulator*]" = NO;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 43346945VW;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = HitokomaWidget/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Difframe;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@executable_path/../../Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.hitokoma.widget;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SKIP_INSTALL = YES;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				SUPPORTS_MACCATALYST = NO;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 1;
-			};
-			name = Debug;
-		};
-		683105B965893FCC643C4ECF /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				"CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]" = NO;
-				"CODE_SIGNING_REQUIRED[sdk=iphonesimulator*]" = NO;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 43346945VW;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = Hitokoma/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Difframe;
-				INFOPLIST_KEY_NSCameraUsageDescription = "お題に合わせて、その場で写真を撮るために使います。";
-				INFOPLIST_KEY_NSContactsUsageDescription = "友達に招待リンクを送る相手を選ぶために使います。連絡先は端末の外へ送りません。";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "地図であなたのいる場所を示したり、投稿に都市の名前（例：東京）をつけるために使います。正確な位置は送信しません。";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "ボイスメッセージを録音するために使います。";
-				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "自分の投稿を、写真アプリに保存するために使います。";
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.hitokoma;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				SUPPORTS_MACCATALYST = NO;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 1;
-			};
-			name = Debug;
-		};
-		71307F56FE0F050CBFE8BD6D /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_ENABLE_MODULES = YES;
-				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-				SWIFT_VERSION = 5.0;
-			};
-			name = Debug;
-		};
-		B84771B52AC0BAD089A7169E /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				"CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]" = NO;
-				"CODE_SIGNING_REQUIRED[sdk=iphonesimulator*]" = NO;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 43346945VW;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = HitokomaWidget/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Difframe;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@executable_path/../../Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.hitokoma.widget;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SKIP_INSTALL = YES;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				SUPPORTS_MACCATALYST = NO;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 1;
-			};
-			name = Release;
-		};
-		D4147F9DEB4AD84BF3A14790 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_ENABLE_MODULES = YES;
-				SWIFT_VERSION = 5.0;
-			};
-			name = Release;
-		};
+		71307F56FE0F050CBFE8BD6D /* Debug */ = {isa = XCBuildConfiguration; buildSettings = { ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; SWIFT_VERSION = 5.0; SWIFT_OPTIMIZATION_LEVEL = "-Onone"; }; name = Debug; };
+		D4147F9DEB4AD84BF3A14790 /* Release */ = {isa = XCBuildConfiguration; buildSettings = { ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; SWIFT_VERSION = 5.0; }; name = Release; };
+		683105B965893FCC643C4ECF /* Debug */ = {isa = XCBuildConfiguration; buildSettings = { CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; GENERATE_INFOPLIST_FILE = YES; IPHONEOS_DEPLOYMENT_TARGET = 17.0; MARKETING_VERSION = 1.0; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SUPPORTS_MACCATALYST = NO; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = 1; DEVELOPMENT_TEAM = 43346945VW; "CODE_SIGNING_REQUIRED[sdk=iphonesimulator*]" = NO; "CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]" = YES; "CODE_SIGN_IDENTITY[sdk=iphonesimulator*]" = "-"; INFOPLIST_FILE = Hitokoma/Info.plist; ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES; INFOPLIST_KEY_UILaunchScreen_Generation = YES; INFOPLIST_KEY_NSCameraUsageDescription = "お題に合わせて、その場で写真を撮るために使います。"; INFOPLIST_KEY_CFBundleDisplayName = Difframe; INFOPLIST_KEY_NSSupportsLiveActivities = YES; INFOPLIST_KEY_NSContactsUsageDescription = "友達に招待リンクを送る相手を選ぶために使います。連絡先は端末の外へ送りません。"; INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "地図であなたのいる場所を示したり、投稿に都市の名前（例：東京）をつけるために使います。正確な位置は送信しません。"; INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "自分の投稿を、写真アプリに保存するために使います。"; INFOPLIST_KEY_NSMicrophoneUsageDescription = "ボイスメッセージを録音するために使います。"; LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks"); PRODUCT_BUNDLE_IDENTIFIER = com.diffframe.app; PRODUCT_NAME = "$(TARGET_NAME)"; CODE_SIGN_ENTITLEMENTS = Hitokoma/Hitokoma.entitlements; }; name = Debug; };
+		4DC7B479A29173674AFD7BAC /* Release */ = {isa = XCBuildConfiguration; buildSettings = { CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; GENERATE_INFOPLIST_FILE = YES; IPHONEOS_DEPLOYMENT_TARGET = 17.0; MARKETING_VERSION = 1.0; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SUPPORTS_MACCATALYST = NO; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = 1; DEVELOPMENT_TEAM = 43346945VW; "CODE_SIGNING_REQUIRED[sdk=iphonesimulator*]" = NO; "CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]" = YES; "CODE_SIGN_IDENTITY[sdk=iphonesimulator*]" = "-"; INFOPLIST_FILE = Hitokoma/Info.plist; ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES; INFOPLIST_KEY_UILaunchScreen_Generation = YES; INFOPLIST_KEY_NSCameraUsageDescription = "お題に合わせて、その場で写真を撮るために使います。"; INFOPLIST_KEY_CFBundleDisplayName = Difframe; INFOPLIST_KEY_NSSupportsLiveActivities = YES; INFOPLIST_KEY_NSContactsUsageDescription = "友達に招待リンクを送る相手を選ぶために使います。連絡先は端末の外へ送りません。"; INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "地図であなたのいる場所を示したり、投稿に都市の名前（例：東京）をつけるために使います。正確な位置は送信しません。"; INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "自分の投稿を、写真アプリに保存するために使います。"; INFOPLIST_KEY_NSMicrophoneUsageDescription = "ボイスメッセージを録音するために使います。"; LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks"); PRODUCT_BUNDLE_IDENTIFIER = com.diffframe.app; PRODUCT_NAME = "$(TARGET_NAME)"; CODE_SIGN_ENTITLEMENTS = Hitokoma/Hitokoma.entitlements; }; name = Release; };
+		51CB9206CDA1600068F77B7A /* Debug */ = {isa = XCBuildConfiguration; buildSettings = { CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; GENERATE_INFOPLIST_FILE = YES; IPHONEOS_DEPLOYMENT_TARGET = 17.0; MARKETING_VERSION = 1.0; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SUPPORTS_MACCATALYST = NO; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = 1; DEVELOPMENT_TEAM = 43346945VW; "CODE_SIGNING_REQUIRED[sdk=iphonesimulator*]" = NO; "CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]" = YES; "CODE_SIGN_IDENTITY[sdk=iphonesimulator*]" = "-"; INFOPLIST_FILE = HitokomaWidget/Info.plist; INFOPLIST_KEY_CFBundleDisplayName = Difframe; LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks"); PRODUCT_BUNDLE_IDENTIFIER = com.diffframe.app.widget; PRODUCT_NAME = "$(TARGET_NAME)"; SKIP_INSTALL = YES; CODE_SIGN_ENTITLEMENTS = HitokomaWidget/HitokomaWidget.entitlements; }; name = Debug; };
+		B84771B52AC0BAD089A7169E /* Release */ = {isa = XCBuildConfiguration; buildSettings = { CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; GENERATE_INFOPLIST_FILE = YES; IPHONEOS_DEPLOYMENT_TARGET = 17.0; MARKETING_VERSION = 1.0; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SUPPORTS_MACCATALYST = NO; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = 1; DEVELOPMENT_TEAM = 43346945VW; "CODE_SIGNING_REQUIRED[sdk=iphonesimulator*]" = NO; "CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]" = YES; "CODE_SIGN_IDENTITY[sdk=iphonesimulator*]" = "-"; INFOPLIST_FILE = HitokomaWidget/Info.plist; INFOPLIST_KEY_CFBundleDisplayName = Difframe; LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks"); PRODUCT_BUNDLE_IDENTIFIER = com.diffframe.app.widget; PRODUCT_NAME = "$(TARGET_NAME)"; SKIP_INSTALL = YES; CODE_SIGN_ENTITLEMENTS = HitokomaWidget/HitokomaWidget.entitlements; }; name = Release; };
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		A6392603704BC67DABF5ACDA /* Build configuration list for PBXProject "Hitokoma" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				71307F56FE0F050CBFE8BD6D /* Debug */,
-				D4147F9DEB4AD84BF3A14790 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		AFD04581184175117C78D9AC /* Build configuration list for PBXNativeTarget "Hitokoma" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				683105B965893FCC643C4ECF /* Debug */,
-				4DC7B479A29173674AFD7BAC /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		C44016C1673E9782B9721C5F /* Build configuration list for PBXNativeTarget "HitokomaWidget" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				51CB9206CDA1600068F77B7A /* Debug */,
-				B84771B52AC0BAD089A7169E /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
+		A6392603704BC67DABF5ACDA /* Build configuration list for PBXProject */ = {isa = XCConfigurationList; buildConfigurations = (71307F56FE0F050CBFE8BD6D /* Debug */, D4147F9DEB4AD84BF3A14790 /* Release */, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		AFD04581184175117C78D9AC /* Build configuration list for PBXNativeTarget */ = {isa = XCConfigurationList; buildConfigurations = (683105B965893FCC643C4ECF /* Debug */, 4DC7B479A29173674AFD7BAC /* Release */, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		C44016C1673E9782B9721C5F /* Build configuration list for PBXNativeTarget */ = {isa = XCConfigurationList; buildConfigurations = (51CB9206CDA1600068F77B7A /* Debug */, B84771B52AC0BAD089A7169E /* Release */, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 /* End XCConfigurationList section */
 	};
 	rootObject = 46F86FAA6BBF9AC94A7E4595 /* Project object */;

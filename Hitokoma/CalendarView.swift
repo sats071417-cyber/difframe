@@ -145,8 +145,12 @@ struct CalendarView: View {
         let posted = all.filter { $0.postedPhotoFile != nil }
         return VStack(alignment: .leading, spacing: 16) {
             Text(key).font(.headline)
-            if let first = all.first {
+            let today = PostStore.dayKey(for: Date())
+            let revealed = key < today || (key == today && !store.isPromptHidden())
+            if let first = all.first, revealed {
                 Text(LF("お題：{p}", ["p": L(first.prompt)])).font(.title3.weight(.black))
+            } else if !all.isEmpty {
+                Text(L("お題は、通知が届いたら見られます")).font(.subheadline).foregroundStyle(Hi.dim)
             } else {
                 Text(L("お題はありません")).foregroundStyle(Hi.dim)
             }
@@ -160,11 +164,19 @@ struct CalendarView: View {
                         Button {
                             viewerID = record.id
                         } label: {
-                            Image(uiImage: image)
-                                .resizable()
-                                .scaledToFill()
+                            // 内カメラの写真も、最初から小さく重ねて見せる
+                            DualPhotoView(main: image, inset: record.frontPhotoFile.flatMap { store.image(for: $0) })
                                 .aspectRatio(PhotoShape.ratio, contentMode: .fit)
                                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                .overlay(alignment: .bottomTrailing) {
+                                    // 拡大できることを、見た目で分かるように
+                                    Image(systemName: "arrow.up.left.and.arrow.down.right")
+                                        .font(.system(size: 12, weight: .black))
+                                        .foregroundStyle(.white)
+                                        .frame(width: 30, height: 30)
+                                        .background(Circle().fill(Color.black.opacity(0.55)))
+                                        .padding(8)
+                                }
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel(L("写真を大きく見る"))

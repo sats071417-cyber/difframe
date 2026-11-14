@@ -33,6 +33,14 @@ enum Trophy: CaseIterable, Identifiable {
 
     var id: Self { self }
 
+    /// サーバーに置くときの名前（変えないこと）
+    var key: String { String(describing: self) }
+
+    init?(key: String) {
+        guard let found = Trophy.allCases.first(where: { $0.key == key }) else { return nil }
+        self = found
+    }
+
     var title: String {
         switch self {
         case .firstPost: return L("はじめての一枚")
