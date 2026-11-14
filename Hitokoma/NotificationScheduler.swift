@@ -17,12 +17,20 @@ enum NotificationScheduler {
         }
     }
 
-    /// 通知の時刻を決める地域（設定で選ぶ。空なら、いまの端末の時間）
+    /// 通知の時刻を決める地域（設定で選ぶ）
     static let zoneKey = "notifyZone"
 
+    /// 選べる4つの地域の代表の時間帯（東アジア・南アジア・ヨーロッパ・アメリカ）
+    static let representativeZones = ["Asia/Tokyo", "Asia/Kolkata", "Europe/Paris", "America/New_York"]
+
+    /// 通知の時刻に使う時間帯。未選択（初期値）や古い版の時間帯は、いまの端末の地域の代表に寄せる。
+    /// こうすると、同じ地域の人は必ず同じ代表の時間帯で計算し、同じ時刻に届く。
     static var zone: TimeZone {
-        let id = UserDefaults.standard.string(forKey: zoneKey) ?? ""
-        return TimeZone(identifier: id) ?? .current
+        let stored = UserDefaults.standard.string(forKey: zoneKey) ?? ""
+        if representativeZones.contains(stored), let zone = TimeZone(identifier: stored) { return zone }
+        let base = TimeZone(identifier: stored) ?? .current
+        let region = PostStore.regionIndex(forOffset: base.secondsFromGMT())
+        return TimeZone(identifier: representativeZones[region]) ?? .current
     }
 
     /// 地域を変えたら、通知を決め直す

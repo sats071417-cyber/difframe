@@ -26,8 +26,7 @@ struct SettingsView: View {
     static let supportEmail = "support@example.com"
 
     private var zoneLabel: String {
-        if zoneID.isEmpty { return L("iPhone の時間に合わせる") }
-        return Self.regionName(forZone: zoneID)
+        Self.regionName(forZone: NotificationScheduler.zone.identifier)
     }
 
     /// 選べるのは、世界の4つの地域。それぞれの代表の時間帯で、通知の時刻を決める
@@ -41,12 +40,10 @@ struct SettingsView: View {
         return L(PostStore.regionShortNames[PostStore.regionIndex(forOffset: zone.secondsFromGMT())])
     }
 
-    /// 前の版で選んだ時間帯が4つの代表と違うときは、同じ地域の代表に直す
+    /// 未選択（初期値）や前の版の時間帯は、いまの端末の地域の代表に直して表示する
     private func normalizeZone() {
-        guard !zoneID.isEmpty, !Self.zones.contains(where: { $0.id == zoneID }),
-              let zone = TimeZone(identifier: zoneID) else { return }
-        let region = PostStore.regionIndex(forOffset: zone.secondsFromGMT())
-        if let match = Self.zones.first(where: { $0.region == region }) { zoneID = match.id }
+        let id = NotificationScheduler.zone.identifier
+        if zoneID != id { zoneID = id }
     }
 
     private var supportURL: URL? {
@@ -93,7 +90,6 @@ struct SettingsView: View {
 
                 Section {
                     Picker(L("通知の時間"), selection: $zoneID) {
-                        Text(L("iPhone の時間に合わせる")).tag("")
                         ForEach(Self.zones, id: \.id) { zone in
                             Text(L(PostStore.regionShortNames[zone.region])).tag(zone.id)
                         }
