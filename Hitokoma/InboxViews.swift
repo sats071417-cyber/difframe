@@ -702,8 +702,8 @@ struct ChatView: View {
 
     private func timeLabel(_ date: Date) -> String {
         Calendar.current.isDateInToday(date)
-            ? date.formatted(date: .omitted, time: .shortened)
-            : date.formatted(date: .abbreviated, time: .shortened)
+            ? date.appFormatted(date: .omitted, time: .shortened)
+            : date.appFormatted(date: .abbreviated, time: .shortened)
     }
 
     /// 上：相手のアイコンと名前、閉じるボタン

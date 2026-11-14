@@ -663,7 +663,7 @@ struct PhotoViewer: View {
                     DotText(text: TimeFormat.string(elapsed), pitch: 3.5, color: Hi.neon)
                 }
             }
-            Text(record.postedAt.map { $0.formatted(date: .long, time: .shortened) } ?? record.dayKey)
+            Text(record.postedAt.map { $0.appFormatted(date: .long, time: .shortened) } ?? record.dayKey)
                 .font(.subheadline).foregroundStyle(Hi.dim)
             if let caption = record.caption, !caption.isEmpty {
                 Text(caption).font(.body)
@@ -712,21 +712,44 @@ struct AvatarCropper: View {
         GeometryReader { geo in
             let side = min(geo.size.width - 48, 340)
             VStack(spacing: 18) {
-                HStack {
-                    Button(L("キャンセル")) { dismiss() }
-                        .foregroundStyle(.white)
-                    Spacer()
-                    Text(L("アイコンを切り抜く")).font(.headline.weight(.black))
-                    Spacer()
-                    Button(L("決定")) {
+                HStack(spacing: 10) {
+                    // どの言語でも押しやすいように、押す範囲を大きく取る（高さ44pt以上）
+                    Button { dismiss() } label: {
+                        Text(L("キャンセル"))
+                            .font(.subheadline.weight(.bold))
+                            .lineLimit(1).minimumScaleFactor(0.7)
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 16)
+                            .frame(minWidth: 84, minHeight: 44)
+                            .background(Capsule().fill(Hi.tile))
+                            .contentShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    Spacer(minLength: 0)
+                    Text(L("アイコンを切り抜く"))
+                        .font(.headline.weight(.black))
+                        .lineLimit(1).minimumScaleFactor(0.6)
+                    Spacer(minLength: 0)
+                    Button {
                         onDone(crop(side: side))
                         dismiss()
+                    } label: {
+                        Text(L("決定"))
+                            .font(.subheadline.weight(.black))
+                            .lineLimit(1).minimumScaleFactor(0.7)
+                            .foregroundStyle(Hi.onNeon)
+                            .padding(.horizontal, 18)
+                            .frame(minWidth: 84, minHeight: 44)
+                            .background(Capsule().fill(Hi.neon))
+                            .contentShape(Capsule())
                     }
-                    .font(.headline.weight(.black))
-                    .foregroundStyle(Hi.neon)
+                    .buttonStyle(.plain)
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 12)
+                .padding(.horizontal, 16)
+                // アプリの中で言語を切り替えたあとは、この画面の上の余白(安全な範囲)が 0 になることがある。
+                // そのままだと、ボタンが時計やカメラの位置に重なって押せないので、端末の画面から直接、余白を取る
+                .padding(.top, 8 + max(0, Self.windowTopInset - geo.safeAreaInsets.top))
+                .zIndex(2)
 
                 Spacer(minLength: 0)
                 ZStack {
@@ -774,6 +797,14 @@ struct AvatarCropper: View {
         }
         .background(Color.black.ignoresSafeArea())
         .preferredColorScheme(.dark)
+    }
+
+    /// いまの画面の上の余白（時計・ダイナミックアイランドの分）
+    private static var windowTopInset: CGFloat {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+            .first(where: \.isKeyWindow)?.safeAreaInsets.top ?? 0
     }
 
     /// 写真が丸の外に出て、すき間ができないようにする

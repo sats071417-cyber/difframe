@@ -190,7 +190,6 @@ struct CalendarView: View {
                         } ?? store.comments(for: record.id).map { (id: $0.id, text: $0.text, date: $0.date) }
                         if list.isEmpty {
                             Text(L("まだコメントはありません")).font(.caption).foregroundStyle(Hi.dim)
-                                .task { if let cloudID { await cloud.loadComments(postID: cloudID) } }
                         } else {
                             VStack(alignment: .leading, spacing: 6) {
                                 ForEach(list, id: \.id) { comment in
@@ -202,6 +201,8 @@ struct CalendarView: View {
                                 }
                             }
                         }
+                        Color.clear.frame(height: 0)
+                            .task(id: record.id) { if let cloudID { await cloud.loadComments(postID: cloudID) } }
                         Button {
                             commentTarget = CommentTarget(id: record.id, owner: L("あなた"), caption: record.caption, image: image,
                                                           cloudID: cloud.cloudID(for: record.id), ownRecordID: record.id)

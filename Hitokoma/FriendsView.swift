@@ -184,7 +184,7 @@ struct FriendsView: View {
                                 .overlay(Circle().stroke(Hi.neon, lineWidth: 2.5))
                             Text(L("自分")).font(.caption.weight(.black)).foregroundStyle(.white)
                             if let at = item.record.postedAt {
-                                Text(at.formatted(date: .omitted, time: .shortened))
+                                Text(at.appFormatted(date: .omitted, time: .shortened))
                                     .font(.caption2).foregroundStyle(Hi.dim)
                             }
                         }
@@ -217,7 +217,7 @@ struct FriendsView: View {
                             .background(Capsule().fill(Hi.neon)).foregroundStyle(Hi.onNeon)
                     }
                     HStack(spacing: 4) {
-                        Text("@" + MyProfile.handle(myHandle) + (record.postedAt.map { " ・ " + $0.formatted(date: .omitted, time: .shortened) } ?? ""))
+                        Text("@" + MyProfile.handle(myHandle) + (record.postedAt.map { " ・ " + $0.appFormatted(date: .omitted, time: .shortened) } ?? ""))
                         if let city = record.city {
                             Label(city, systemImage: "mappin").labelStyle(.titleAndIcon)
                         }

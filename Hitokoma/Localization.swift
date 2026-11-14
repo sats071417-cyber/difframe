@@ -69,3 +69,10 @@ func LF(_ key: String, _ args: [String: String]) -> String {
     for (name, value) in args { s = s.replacingOccurrences(of: "{\(name)}", with: value) }
     return s
 }
+
+extension Date {
+    /// 日付・時刻の書き方を、端末の言語ではなく、アプリの言語で作る
+    func appFormatted(date: Date.FormatStyle.DateStyle, time: Date.FormatStyle.TimeStyle) -> String {
+        formatted(Date.FormatStyle(date: date, time: time).locale(Locale(identifier: AppLanguage.current.rawValue)))
+    }
+}

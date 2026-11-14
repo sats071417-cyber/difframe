@@ -158,7 +158,7 @@ struct TodayView: View {
                 Text(L("届くまで、お題はヒミツです。届いた瞬間から、タイムが始まります。"))
                     .font(.subheadline.weight(.bold)).multilineTextAlignment(.center).opacity(0.8)
                 if let start {
-                    Text(LF("通知は {t} ごろ", ["t": start.formatted(date: .omitted, time: .shortened)]))
+                    Text(LF("通知は {t} ごろ", ["t": start.appFormatted(date: .omitted, time: .shortened)]))
                         .font(.caption.weight(.bold)).opacity(0.7)
                 }
             }

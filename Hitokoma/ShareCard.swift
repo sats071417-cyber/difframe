@@ -73,7 +73,7 @@ enum ShareCard {
     /// 投稿から、共有用の画像を作る
     @MainActor
     static func make(record: PromptRecord, photo: UIImage, inset: UIImage?, handle: String) -> UIImage? {
-        let date = record.postedAt?.formatted(date: .abbreviated, time: .omitted) ?? record.dayKey
+        let date = record.postedAt?.appFormatted(date: .abbreviated, time: .omitted) ?? record.dayKey
         let view = ShareCardView(
             prompt: L(record.prompt),
             photo: photo,

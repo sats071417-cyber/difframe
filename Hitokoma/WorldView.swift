@@ -362,7 +362,7 @@ struct WorldView: View {
                                 .overlay(Circle().stroke(Hi.neon, lineWidth: 2.5))
                             Text(L("自分")).font(.caption.weight(.black)).foregroundStyle(.white)
                             if let at = item.record.postedAt {
-                                Text(at.formatted(date: .omitted, time: .shortened))
+                                Text(at.appFormatted(date: .omitted, time: .shortened))
                                     .font(.caption2).foregroundStyle(Hi.dim)
                             }
                         }

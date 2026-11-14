@@ -132,6 +132,17 @@ struct CommentLine: View {
         return (list.last?.text, list.count)
     }
 
+    /// 自分の投稿についた、友達のリアクション（絵文字と人数）
+    private func friendReactions(_ serverID: String) -> [(emoji: String, count: Int)] {
+        guard serverID.hasPrefix((cloud.uid ?? "?") + "_") else { return [] }
+        var order: [String] = []; var counts: [String: Int] = [:]
+        for n in cloud.notices where n.type == "like" && n.postID == serverID && !cloud.blocked.contains(n.fromUID) {
+            if counts[n.text] == nil { order.append(n.text) }
+            counts[n.text, default: 0] += 1
+        }
+        return order.map { ($0, counts[$0] ?? 0) }
+    }
+
     var body: some View {
         let info = summary
         HStack(spacing: 10) {
@@ -145,6 +156,16 @@ struct CommentLine: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(LF("{e} のリアクションを外す", ["e": mine]))
+            }
+            if let cloudID, !friendReactions(cloudID).isEmpty {
+                // 友達からのリアクション（絵文字ごとの数）
+                HStack(spacing: 4) {
+                    ForEach(friendReactions(cloudID), id: \.emoji) { r in
+                        Text(r.count > 1 ? "\(r.emoji)\(r.count)" : r.emoji).font(.subheadline)
+                    }
+                }
+                .padding(.horizontal, 8).padding(.vertical, 4)
+                .background(Capsule().fill(Hi.neon.opacity(0.25)))
             }
             if allowComments {
                 Button(action: onComment) {
@@ -172,7 +193,10 @@ struct CommentLine: View {
             }
         }
         .task(id: cloudID) {
-            if let cloudID, cloud.comments[cloudID] == nil { await cloud.loadComments(postID: cloudID) }
+            if let cloudID {
+                await cloud.loadComments(postID: cloudID)
+                if cloudID.hasPrefix((cloud.uid ?? "?") + "_") { await cloud.loadInbox() }
+            }
         }
     }
 }
@@ -279,6 +303,14 @@ struct CommentSheet: View {
         .presentationDetents([.large])
         .presentationBackground(.black)
         .preferredColorScheme(.dark)
+        .task {
+            // 開いている間は、友達のコメント・リアクションを読み直し続ける
+            while !Task.isCancelled {
+                if let cloudID { await cloud.loadComments(postID: cloudID) }
+                if ownRecordID != nil { await cloud.loadInbox() }
+                try? await Task.sleep(nanoseconds: 6_000_000_000)
+            }
+        }
         .onAppear {
             // 開いたら、すぐキーボードを出す（通知から開いたときは、そのコメントを見せるので出さない）
             if focusID == nil {
@@ -365,7 +397,6 @@ struct CommentSheet: View {
             likersList
         }
         .frame(maxWidth: .infinity)
-        .task { if ownRecordID != nil { await cloud.loadInbox() } }
     }
 
     /// 自分の投稿の、内カメラの写真（あれば）
@@ -378,7 +409,8 @@ struct CommentSheet: View {
     /// この投稿にリアクションした人（自分の投稿だけ。通知から読む）
     private var likers: [CloudNotice] {
         guard ownRecordID != nil else { return [] }
-        return cloud.notices.filter { $0.type == "like" && $0.postID == postID }
+        let serverID = cloudID ?? postID
+        return cloud.notices.filter { $0.type == "like" && $0.postID == serverID && !cloud.blocked.contains($0.fromUID) }
     }
 
     @ViewBuilder

@@ -51,7 +51,7 @@ struct SettingsView: View {
 
     private var supportURL: URL? {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "-"
-        let subject = "Difframe お問い合わせ".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        let subject = L("Difframe お問い合わせ").addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
         let body = "\n\n— Difframe \(version)".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
         return URL(string: "mailto:\(Self.supportEmail)?subject=\(subject)&body=\(body)")
     }

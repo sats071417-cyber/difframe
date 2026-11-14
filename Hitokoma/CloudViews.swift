@@ -89,7 +89,7 @@ struct CloudStatusRow: View {
                 } else if cloud.lastError != nil {
                     Text(L("つながりません"))
                 } else if let sync = cloud.lastSync {
-                    Text(LF("つながっています（{t}）", ["t": sync.formatted(date: .omitted, time: .shortened)]))
+                    Text(LF("つながっています（{t}）", ["t": sync.appFormatted(date: .omitted, time: .shortened)]))
                 } else {
                     Text(L("つないでいます…"))
                 }
