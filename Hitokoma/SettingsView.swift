@@ -23,7 +23,7 @@ struct SettingsView: View {
     @State private var changingPhone = false
 
     /// 問い合わせの送り先（公開前に、実際の窓口のアドレスに変えること）
-    static let supportEmail = "support@example.com"
+    static let supportEmail = "support@lpstudio.app"
 
     private var zoneLabel: String {
         Self.regionName(forZone: NotificationScheduler.zone.identifier)
