@@ -90,11 +90,13 @@ Without a server, the app still works on the device, and phone sign-up falls bac
 
 ## AI use and attribution
 
-We used AI in two ways. Both are described here and on our Devpost page.
+We used AI in three ways. All are described here and on our Devpost page.
 
 **1. AI coding assistant (development).** Most of the code was written with **Claude Code** (Anthropic), an AI coding assistant, working from our directions: it wrote and refactored Swift and SwiftUI code, the Firebase security rules, the Cloud Functions, and the localized strings, and it helped debug build and device problems. We set the product idea and goals, chose the features, reviewed the changes, built the app, and tested it on real iPhones. Decisions about privacy, safety, and what the app should feel like are ours.
 
 **2. AI features in the app.** Apple Vision, Apple Translation, and NaturalLanguage (language detection), as described in [Where AI is used](#where-ai-is-used). They run on the device.
+
+**3. AI voice (demo video).** The narration of our demo video was generated with **ElevenLabs** text-to-speech from a script we wrote. The video says so in the narration. The screen footage and the script are ours.
 
 ## License
 

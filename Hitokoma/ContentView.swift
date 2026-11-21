@@ -9,6 +9,7 @@ struct ContentView: View {
     @State private var dragX: CGFloat = 0           // 横にスワイプしている量
     @State private var swiping = false              // いま、画面の切り替えをなぞっている
     @State private var swipeDecided = false         // このなぞりを、切り替えとして扱うか決めた
+    @GestureState private var dragging = false      // 指が触れている間だけ true。途中で取り消されても、自動で false に戻る
     @ObservedObject private var router = PushRouter.shared
     @ObservedObject private var worldFocus = WorldFocus.shared
     @State private var showNotices = false
@@ -43,6 +44,13 @@ struct ContentView: View {
             }
         }
         .simultaneousGesture(tabSwipe)
+        // なぞりがシステムに取り消されたとき（onEnded が呼ばれない）は、元の位置に戻して、触れるようにする
+        .onChange(of: dragging) { _, now in
+            guard !now, swipeDecided else { return }
+            swipeDecided = false
+            withAnimation(.easeOut(duration: 0.2)) { dragX = 0 }
+            swiping = false
+        }
         .id(languageRaw)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             HiTabBar(selection: $selection, onCapture: capture)
@@ -131,6 +139,7 @@ struct ContentView: View {
     /// 地図や写真の横スクロールとぶつからないように、画面の端から始めたときだけ効く画面がある。
     private var tabSwipe: some Gesture {
         DragGesture(minimumDistance: 15, coordinateSpace: .global)
+            .updating($dragging) { _, state, _ in state = true }
             .onChanged { value in
                 let dx = value.translation.width, dy = value.translation.height
                 if !swipeDecided {
