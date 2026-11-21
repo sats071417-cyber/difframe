@@ -11,6 +11,7 @@ struct SettingsView: View {
     @AppStorage("mute.friendRequest") private var muteRequest = false
     @AppStorage("mute.friendAccepted") private var muteAccepted = false
     @AppStorage("mute.friendPost") private var mutePost = false
+    @AppStorage("mute.rankUp") private var muteRankUp = false
     @AppStorage("mute.message") private var muteMessage = false
     // 撮影
     @AppStorage("dualCamera") private var dualCamera = true
@@ -19,8 +20,16 @@ struct SettingsView: View {
     @AppStorage("sharePublic") private var sendPublic = true
     @AppStorage("publicCommentsDefault") private var publicComments = true
     @AppStorage("shareLocation") private var addLocation = true
+    @AppStorage("pickupOptOut") private var pickupOptOut = false
 
     @State private var changingPhone = false
+    @State private var confirmDelete = false
+    @State private var deleting = false
+    @State private var deleteResult: DeleteResult? = nil
+
+    /// 公開のページ（プライバシーポリシーと利用規約）
+    static let privacyURL = URL(string: "https://difframe-acae0.web.app/privacy.html")!
+    static let termsURL = URL(string: "https://difframe-acae0.web.app/terms.html")!
 
     /// 問い合わせの送り先（公開前に、実際の窓口のアドレスに変えること）
     static let supportEmail = "support@lpstudio.app"
@@ -82,10 +91,16 @@ struct SettingsView: View {
                     Button(phone.isEmpty ? L("電話番号を登録") : L("電話番号を変える")) {
                         changingPhone = true
                     }
+                    Button(role: .destructive) { confirmDelete = true } label: {
+                        if deleting { ProgressView() } else { Text(L("アカウントを削除")) }
+                    }
+                    .disabled(deleting)
                 } header: {
                     Text(L("アカウント"))
                 } footer: {
-                    Text(L("電話番号は、この端末の中にだけ保存されます。"))
+                    Text(FirebaseBoot.available
+                         ? L("電話番号は、本人確認と、別の端末で同じアカウントに入るために使います。ほかの人には見えません。")
+                         : L("電話番号は、この端末の中にだけ保存されます。"))
                 }
 
                 Section {
@@ -127,11 +142,25 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    Toggle(L("「今日の10枚」に選ばれる"), isOn: Binding(
+                        get: { !pickupOptOut },
+                        set: { on in
+                            pickupOptOut = !on
+                            Task { await CloudSync.shared.setPickupOff(!on) }
+                        })).tint(Hi.neon)
+                } header: {
+                    Text(L("今日の10枚"))
+                } footer: {
+                    Text(L("オンにすると、みんなに送った投稿が、毎朝の「今日の10枚」に選ばれることがあります。オフにすると、選ばれません。"))
+                }
+
+                Section {
                     Toggle(L("コメント"), isOn: Binding(get: { !muteComment }, set: { muteComment = !$0 }))
                     Toggle(L("いいね"), isOn: Binding(get: { !muteLike }, set: { muteLike = !$0 }))
                     Toggle(L("友達リクエスト"), isOn: Binding(get: { !muteRequest }, set: { muteRequest = !$0 }))
                     Toggle(L("友達になったお知らせ"), isOn: Binding(get: { !muteAccepted }, set: { muteAccepted = !$0 }))
                     Toggle(L("友達の投稿"), isOn: Binding(get: { !mutePost }, set: { mutePost = !$0 }))
+                    Toggle(L("友達のランクアップ"), isOn: Binding(get: { !muteRankUp }, set: { muteRankUp = !$0 }))
                     Toggle(L("DM"), isOn: Binding(get: { !muteMessage }, set: { muteMessage = !$0 }))
                 } header: {
                     Text(L("通知の種類"))
@@ -146,6 +175,8 @@ struct SettingsView: View {
                             Label(L("お問い合わせ"), systemImage: "envelope")
                         }
                     }
+                    Link(destination: Self.privacyURL) { Label(L("プライバシーポリシー"), systemImage: "hand.raised") }
+                    Link(destination: Self.termsURL) { Label(L("利用規約"), systemImage: "doc.text") }
                     CloudStatusRow()
                     HStack {
                         Text(L("バージョン"))
@@ -168,7 +199,28 @@ struct SettingsView: View {
                     Button(L("閉じる")) { dismiss() }
                 }
             }
-            .sheet(isPresented: $changingPhone) {
+            .confirmationDialog(L("アカウントを削除しますか？"), isPresented: $confirmDelete, titleVisibility: .visible) {
+                Button(L("削除する"), role: .destructive) {
+                    deleting = true
+                    Task {
+                        let result = await CloudSync.shared.deleteAccount()
+                        deleting = false
+                        if result == .done { CloudSync.shared.wipeLocalData(); dismiss() } else { deleteResult = result }
+                    }
+                }
+                Button(L("キャンセル"), role: .cancel) {}
+            } message: {
+                Text(L("投稿、コメント、友達、メッセージ、電話番号を、サーバーから消します。この端末のデータも消えます。元に戻せません。"))
+            }
+            .alert(deleteResult == .needsRecentLogin ? L("もう一度、確認が必要です") : L("削除できませんでした"),
+                   isPresented: Binding(get: { deleteResult != nil }, set: { if !$0 { deleteResult = nil } })) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(deleteResult == .needsRecentLogin
+                     ? L("安全のため、電話番号をもう一度確認してください。「電話番号を変える」で確認したあと、もう一度削除してください。")
+                     : L("通信を確かめて、もう一度試してください。"))
+            }
+            .fullScreenCover(isPresented: $changingPhone) {
                 SignUpView(onFinish: { changingPhone = false }, phoneOnly: true)
             }
         }

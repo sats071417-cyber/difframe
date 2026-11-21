@@ -46,7 +46,10 @@ extension CloudSync {
             "date": .timestamp(Date()), "read": .bool(false),
         ]
         if let postID { fields["postID"] = .string(postID) }
-        do { try await patch("notifications/\(target)/items/\(id)", fields: fields) } catch { report(error) }
+        do { try await patch("notifications/\(target)/items/\(id)", fields: fields) } catch {
+            // ランクアップのお知らせは、失敗しても画面の「つながりません」にはしない
+            if type == "rankUp" { print("rankUp notice failed:", error.localizedDescription) } else { report(error) }
+        }
     }
 
     /// リアクションをつけたら、投稿した人に知らせる（1人1投稿につき1件。外したら消す）
@@ -54,6 +57,25 @@ extension CloudSync {
         guard let uid, postID.contains("_"), let owner = postID.split(separator: "_").first.map(String.init),
               owner != uid, PostStore.shared.reactions[postID] == emoji else { return }
         Task { await notify(to: owner, id: "react_\(uid)_\(postID)", type: "like", text: emoji, postID: postID) }
+    }
+
+    /// ランクが上がったら、友達に知らせる。月が変わるとランクは戻るので、同じ月の中で上がったときだけ。
+    /// 初めて見る月は、いまのランクを覚えるだけ（再インストールや月初めに、まとめて送らない）
+    func announceRankUp(_ rank: Rank) {
+        let month = MonthlyPoints.monthKey(for: Date())
+        let key = "cloud.rankAnnounced"
+        let stored = (UserDefaults.standard.string(forKey: key) ?? "").split(separator: ":")
+        let storedMonth = stored.first.map(String.init)
+        let storedRank = stored.count == 2 ? Int(stored[1]) : nil
+        if storedMonth == month, let storedRank, rank.rawValue <= storedRank { return }
+        UserDefaults.standard.set("\(month):\(rank.rawValue)", forKey: key)
+        guard storedMonth == month, storedRank != nil, rank > .bronze, let uid else { return }
+        let targets = friends.map(\.uid).filter { !blocked.contains($0) }
+        Task {
+            for target in targets {
+                await notify(to: target, id: "rankup_\(uid)", type: "rankUp", text: String(rank.rawValue))
+            }
+        }
     }
 
     /// 自分の通知を読む
@@ -379,6 +401,7 @@ extension CloudNotice {
         case "friendAccepted": return LF("{n} さんと友達になりました", ["n": who])
         case "comment": return LF("{n} さんがコメントしました", ["n": who])
         case "friendPost": return LF("{n} さんが投稿しました", ["n": who])
+        case "rankUp": return LF("{n} さんが{r}にランクアップしました", ["n": who, "r": Rank(rawValue: Int(text) ?? -1)?.name ?? ""])
         case "like": return LF("{n} さんがリアクションしました", ["n": who])
         default: return LF("{n} さんからメッセージ", ["n": who])
         }

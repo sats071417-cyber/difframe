@@ -28,7 +28,7 @@ struct SignUpView: View {
     @FocusState private var focused: Bool
     @FocusState private var handleFocused: Bool
 
-    private let auth: PhoneAuthProvider = DemoPhoneAuth()
+    private let auth: PhoneAuthProvider = FirebaseBoot.available ? FirebasePhoneAuth.shared : DemoPhoneAuth()
 
     var body: some View {
         ZStack {
@@ -118,9 +118,14 @@ struct SignUpView: View {
                     .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Hi.tile))
             }
 
-            demoNotice
+            if !auth.isReal { demoNotice }
 
             if let error { Text(error).font(.footnote).foregroundStyle(.red) }
+
+            // 続けると、規約に同意したことになる
+            (Text(L("続けると、")) + Text("[\(L("利用規約"))](\(SettingsView.termsURL.absoluteString))") + Text(L("と")) +
+             Text("[\(L("プライバシーポリシー"))](\(SettingsView.privacyURL.absoluteString))") + Text(L("に同意したことになります。")))
+                .font(.caption).foregroundStyle(Hi.dim)
 
             Button {
                 sendCode()

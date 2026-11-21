@@ -2,7 +2,6 @@ import SwiftUI
 
 /// 友達の投稿フィード。自分が今日投稿するまでは見られない。
 /// 友達は名前で追加する（端末の中に保存）。友達の投稿は、その人の地域のお題で表示する。
-/// 注意：友達の投稿はまだサンプル。写真がないので、お題の文字で代わりに表示する。
 struct FriendsView: View {
     let onCapture: () -> Void
     /// タイムラインの中に入れるときは true（見出しを出さない）
@@ -13,26 +12,7 @@ struct FriendsView: View {
     @ObservedObject private var cloud = CloudSync.shared
     @AppStorage("friendList") private var friendList: String = MyProfile.defaultFriends
     @State private var commentTarget: CommentTarget? = nil
-
-    // サンプル投稿の持ち主（名前）と地域（グループ番号）
-    private struct Sample: Identifiable {
-        let id: String
-        let owner: String
-        let city: String
-        let caption: String
-        let region: Int
-        let trophies: [Trophy]
-        let rank: Rank
-    }
-
-    private let samples: [Sample] = [
-        Sample(id: "s1", owner: "Kanta", city: "Tokyo, Japan", caption: L("やあ"), region: 0, trophies: [.streak7, .under30, .firstPost], rank: .gold),
-        Sample(id: "s2", owner: "motohiro", city: "Vancouver, Canada", caption: "Hi", region: 3, trophies: [.streak3, .under60, .firstPost], rank: .silver),
-        Sample(id: "s3", owner: "Alex", city: "Paris, France", caption: "Salut", region: 2, trophies: [.posts10, .under60, .firstPost], rank: .platinum),
-        Sample(id: "s4", owner: "Sam", city: "Nairobi, Kenya", caption: "Jambo", region: 2, trophies: [.under30, .firstPost], rank: .silver),
-        Sample(id: "s5", owner: "Mina", city: "Seoul, South Korea", caption: "안녕", region: 0, trophies: [.streak3, .firstPost], rank: .bronze),
-        Sample(id: "s6", owner: "Lucas", city: "Toronto, Canada", caption: "Hey", region: 3, trophies: [.firstPost], rank: .bronze),
-    ]
+    @State private var mapCity: String? = nil
 
     private var friends: [String] {
         friendList.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
@@ -42,10 +22,6 @@ struct FriendsView: View {
 
     private var hasPostedToday: Bool {
         store.hasPosted(day: todayKey)
-    }
-
-    private var visible: [Sample] {
-        samples.filter { friends.contains($0.owner) }
     }
 
     var body: some View {
@@ -76,12 +52,12 @@ struct FriendsView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(Color.black.ignoresSafeArea())
-        .sheet(isPresented: $showAdd) {
+        .fullScreenCover(isPresented: $showAdd) {
             AddFriendSheet(isPresented: $showAdd)
         }
-        .sheet(item: $commentTarget) { target in
+        .fullScreenCover(item: $commentTarget) { target in
             CommentSheet(postID: target.id, owner: target.owner, caption: target.caption,
-                         image: target.image, prompt: target.prompt, cloudID: target.cloudID, ownRecordID: target.ownRecordID)
+                         image: target.image, front: target.front, prompt: target.prompt, cloudID: target.cloudID, ownRecordID: target.ownRecordID)
                 .environmentObject(store)
         }
     }
@@ -118,6 +94,7 @@ struct FriendsView: View {
     private var feed: some View {
         ScrollView {
             LazyVStack(spacing: 28) {
+                Color.clear.frame(height: 0).reportScroll(tag: 0)
                 // 自分の今日の投稿を、いちばん上に
                 if !myPosts.isEmpty { myStrip }
                 if cloud.isOn {
@@ -135,8 +112,9 @@ struct FriendsView: View {
                     ForEach(cloud.friendPosts) { post in
                         CloudPostCard(post: post, asFriend: true) { commentTarget = $0 }
                             .padding(.horizontal)
+                            .riseIn()
                     }
-                } else if visible.isEmpty {
+                } else {
                     VStack(spacing: 12) {
                         Text(L("友達がいません")).foregroundStyle(.secondary)
                         Text(L("右上の人のマークから、友達を追加できます"))
@@ -144,16 +122,16 @@ struct FriendsView: View {
                             .foregroundStyle(.secondary)
                     }
                     .padding(.top, 20)
-                } else {
-                    ForEach(visible) { item in
-                        card(item)
-                    }
                 }
             }
             .padding(.vertical)
         }
+        .coordinateSpace(name: "feedScroll")
         .refreshable { await cloud.refresh(force: true) }
         .background(Color.black)
+        .fullScreenCover(item: Binding(get: { mapCity.map { MapCityTarget(id: $0) } }, set: { mapCity = $0?.id })) {
+            LocationMapSheet(city: $0.id, latitude: nil, longitude: nil, photo: nil)
+        }
     }
 
     @AppStorage("myName") private var myName: String = "あなた"
@@ -194,6 +172,7 @@ struct FriendsView: View {
             }
             .padding(.horizontal, 16)
         }
+        .blocksTabSwipe(.friends, id: "row")
     }
 
     /// 自分の投稿のカード（友達の投稿と同じ形）
@@ -219,7 +198,10 @@ struct FriendsView: View {
                     HStack(spacing: 4) {
                         Text("@" + MyProfile.handle(myHandle) + (record.postedAt.map { " ・ " + $0.appFormatted(date: .omitted, time: .shortened) } ?? ""))
                         if let city = record.city {
-                            Label(city, systemImage: "mappin").labelStyle(.titleAndIcon)
+                            Button { mapCity = city } label: {
+                                Label(city, systemImage: "mappin").labelStyle(.titleAndIcon).foregroundStyle(Hi.neon)
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                     .font(.caption).foregroundStyle(.gray).lineLimit(1)
@@ -253,65 +235,8 @@ struct FriendsView: View {
         .padding(.vertical, 8)
     }
 
-    private func card(_ item: Sample) -> some View {
-        let prompt = store.activePrompt() ?? "？" 
-        return VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
-                Circle()
-                    .fill(Color.white.opacity(0.15))
-                    .frame(width: 36, height: 36)
-                    .overlay(
-                        Text(String(item.owner.prefix(1)))
-                            .font(.system(.subheadline, design: .rounded).bold())
-                            .foregroundStyle(.white)
-                    )
-                VStack(alignment: .leading, spacing: 1) {
-                    HStack(spacing: 6) {
-                        Text(item.owner)
-                            .font(.subheadline.weight(.black))
-                            .lineLimit(1)
-                            .fixedSize()
-                        // 他の人からも見える、珍しいトロフィー
-                        RankBadge(rank: item.rank)
-                        TrophyBadges(trophies: item.trophies)
-                    }
-                    Text("@\(item.owner.lowercased()) ・ \(item.city)")
-                        .font(.caption).foregroundStyle(.gray)
-                }
-                Spacer()
-            }
-            .padding(.horizontal)
-
-            // 写真（サンプルのため、お題の文字を大きく表示）
-            PromptArtView(prompt: prompt)
-                .aspectRatio(PhotoShape.ratio, contentMode: .fit)
-                .overlay(alignment: .topLeading) {
-                    Text(L(prompt))
-                        .font(.title3.weight(.black))
-                        .foregroundStyle(.white)
-                        .padding(16)
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-                .socialPhoto(postID: item.id) { openComments(for: item, prompt: prompt) }
-                .padding(.horizontal)
-
-            Text(item.caption)
-                .font(.subheadline)
-                .padding(.horizontal)
-
-            // 友達の投稿：コメントはいつでもオン
-            CommentLine(postID: item.id) { openComments(for: item, prompt: prompt) }
-                .padding(.horizontal)
-        }
-        .padding(.vertical, 8)
-    }
-
     private func openComments(for record: PromptRecord, image: UIImage) {
         commentTarget = CommentTarget(id: record.id, owner: L("あなた"), caption: record.caption, image: image,
                                       cloudID: cloud.cloudID(for: record.id), ownRecordID: record.id)
-    }
-
-    private func openComments(for item: Sample, prompt: String) {
-        commentTarget = CommentTarget(id: item.id, owner: item.owner, caption: item.caption, prompt: prompt)
     }
 }

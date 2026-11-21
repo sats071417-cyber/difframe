@@ -7,6 +7,7 @@ const { buildAlert, makeJWT, pushToDevice, hostFor } = require('./push');
 (async () => {
   // 文面
   assert.deepStrictEqual(buildAlert({ type: 'friendPost', fromName: 'カンタ' }, 'ja'), { title: 'Difframe', body: 'カンタ さんが投稿しました' });
+  assert.strictEqual(buildAlert({ type: 'friendPost', fromName: 'Léa' }, 'fr').body, 'Léa a publié');
   assert.deepStrictEqual(buildAlert({ type: 'friendRequest', fromName: 'Kanta' }, 'en'), { title: 'Difframe', body: 'Kanta sent you a friend request' });
   // DM の中身は通知に出さない
   const dm = buildAlert({ type: 'message', fromName: 'Kanta', text: 'secret words' }, 'en');

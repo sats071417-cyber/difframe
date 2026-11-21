@@ -19,10 +19,21 @@ struct TodayView: View {
             }
             let posted = todaysPhotos
             let open = store.nextOpenRecord(day: todayKey)
-            if store.isPromptHidden() {
+            if posted.isEmpty {
+                // 通知の30分前から、届くまでをカウントダウン（毎秒、見直す）
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    if let fireAt = countdownTarget(now: context.date) {
+                        countdownCard(fireAt: fireAt, now: context.date)
+                    } else if store.isPromptHidden() {
+                        hiddenCard
+                    } else if let open {
+                        promptCard(open)
+                    } else {
+                        Spacer()
+                    }
+                }
+            } else if store.isPromptHidden() {
                 hiddenCard
-            } else if posted.isEmpty {
-                if let open { promptCard(open) } else { Spacer() }
             } else {
                 // 今日撮った写真を、左右にスワイプして見る。まだ撮れるなら、最後のページはお題のカード
                 TabView(selection: $page) {
@@ -147,6 +158,32 @@ struct TodayView: View {
         .accessibilityLabel(LF("今日のお題 {p}。撮影に進む", ["p": L(record.prompt)]))
     }
 
+    /// 今日のお題が届くまでの30分間だけ、届く時刻を返す
+    private func countdownTarget(now: Date) -> Date? {
+        let today = PostStore.dayKey(for: now)
+        let fireAt = store.records(day: today).compactMap(\.startedAt).min() ?? NotificationScheduler.fireTime(for: now)
+        let remaining = fireAt.timeIntervalSince(now)
+        return (remaining > 0 && remaining <= 30 * 60) ? fireAt : nil
+    }
+
+    /// お題が届く30分前から：届くまでのカウントダウン（お題は、まだ伏せる）
+    private func countdownCard(fireAt: Date, now: Date) -> some View {
+        ZStack {
+            GlowBackground(palette: .forPrompt("?"))
+            VStack(spacing: 14) {
+                Image(systemName: "bell.badge.fill").font(.system(size: 40))
+                Text(L("お題が届くまで")).font(.title3.weight(.black))
+                FitDotText(text: TimeFormat.string(max(0, fireAt.timeIntervalSince(now))), color: Color.black.opacity(0.82))
+                Text(L("届いたら、すぐに撮ろう。届いた瞬間から、タイムが始まります。"))
+                    .font(.caption.weight(.bold)).multilineTextAlignment(.center).opacity(0.7)
+            }
+            .foregroundStyle(Color.black.opacity(0.82))
+            .padding(24)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
+        .accessibilityElement(children: .combine)
+    }
+
     /// はじめての日：通知が届くまで、お題を伏せる
     private var hiddenCard: some View {
         let start = store.records(day: PostStore.dayKey(for: Date())).compactMap(\.startedAt).min()
@@ -229,10 +266,10 @@ struct TodayView: View {
 
     private var summaryTiles: some View {
         let monthly = MonthlyPoints(records: store.records, month: MonthlyPoints.monthKey(for: Date()))
-        let position = WorldRanking.position(myBest: TimeAttackStats(records: store.records).best)
+        let best = TimeAttackStats(records: store.records).best
         return HStack(spacing: 10) {
             tile(title: L("今月のランク"), value: monthly.rank.name, note: L("投稿で貯めたポイントで決まります"), color: monthly.rank.color)
-            tile(title: L("地域の最速順位"), value: position.map { LF("{n}位", ["n": "\($0)"]) } ?? L("まだありません"), note: L("お題に合う写真を撮ると入ります"), color: .white)
+            tile(title: L("自己ベスト"), value: best.map { TimeFormat.string($0) } ?? L("まだありません"), note: L("お題に合う写真を撮ると入ります"), color: .white)
         }
     }
 
@@ -315,7 +352,7 @@ struct DeletePostMenu: View {
                 .contentShape(Circle())
         }
         .accessibilityLabel(L("投稿のメニュー"))
-        .sheet(isPresented: $editingCaption) {
+        .fullScreenCover(isPresented: $editingCaption) {
             CaptionEditSheet(recordID: recordID)
                 .environmentObject(store)
         }
@@ -387,6 +424,7 @@ struct DualPhotoView: View {
                         .padding(margin)
                         .offset(drag)
                         .onTapGesture {
+                            UISelectionFeedbackGenerator().selectionChanged()   // 大小の入れ替え
                             withAnimation(.easeInOut(duration: 0.2)) { swapped.toggle() }
                         }
                         .highPriorityGesture(
@@ -396,8 +434,10 @@ struct DualPhotoView: View {
                                     // 離した位置に近い方の、上の角へ戻る
                                     let startX = onLeft ? margin + side / 2 : geo.size.width - margin - side / 2
                                     let endX = startX + value.translation.width
+                                    let newLeft = endX < geo.size.width / 2
+                                    if newLeft != onLeft { UIImpactFeedbackGenerator(style: .light).impactOccurred() }   // 反対の角へ移った
                                     withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                                        onLeft = endX < geo.size.width / 2
+                                        onLeft = newLeft
                                         drag = .zero
                                     }
                                 }

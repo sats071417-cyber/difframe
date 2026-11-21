@@ -64,3 +64,14 @@ fastlane/test_output
 # Project-specific
 build/
 icon_candidates/
+vision_*
+*.bak
+
+# Secrets and local config (never commit)
+*.p8
+.env
+.env.*
+firebase/functions/.env*
+firebase/.firebase/
+GoogleService-Info.plist
+**/GoogleService-Info.plist

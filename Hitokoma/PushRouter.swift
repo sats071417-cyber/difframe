@@ -3,6 +3,7 @@ import SwiftUI
 /// 通知をタップしたとき、開く先（投稿・DM・通知一覧）
 enum PushRoute: Equatable {
     case notices
+    case pickup
     case post(id: String, name: String)
     case chat(CloudFriend)
 }

@@ -26,10 +26,35 @@ struct TimeAttackStats {
 /// トロフィー（実績）の一覧。条件は投稿の記録から計算する。
 enum Trophy: CaseIterable, Identifiable {
     case firstPost
-    case streak3, streak7, streak30
-    case under60, under30, under10
     case posts10
+    case posts25
+    case posts50
+    case posts100
+    case streak3
+    case streak7
+    case streak14
+    case streak30
+    case streak100
+    case under60
+    case under30
+    case under10
+    case under5
+    case fast10
+    case fast30x5
+    case friends1
     case friends3
+    case friends5
+    case friends10
+    case cities3
+    case cities10
+    case earlyBird
+    case nightOwl
+    case weekend
+    case caption10
+    case dual10
+    case full3
+    case full3x7
+    case public10
 
     var id: Self { self }
 
@@ -44,76 +69,246 @@ enum Trophy: CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .firstPost: return L("はじめての一枚")
+        case .posts10: return L("10枚投稿")
+        case .posts25: return L("25枚投稿")
+        case .posts50: return L("50枚投稿")
+        case .posts100: return L("100枚投稿")
         case .streak3: return L("3日連続")
         case .streak7: return L("7日連続")
+        case .streak14: return L("14日連続")
         case .streak30: return L("30日連続")
+        case .streak100: return L("100日連続")
         case .under60: return L("1分以内")
         case .under30: return L("30秒以内")
         case .under10: return L("10秒以内")
-        case .posts10: return L("10枚投稿")
+        case .under5: return L("5秒以内")
+        case .fast10: return L("はやうち名人")
+        case .fast30x5: return L("神速5回")
+        case .friends1: return L("はじめての友達")
         case .friends3: return L("友達3人")
+        case .friends5: return L("友達5人")
+        case .friends10: return L("友達10人")
+        case .cities3: return L("3つの街")
+        case .cities10: return L("世界旅行者")
+        case .earlyBird: return L("早起きさん")
+        case .nightOwl: return L("夜ふかしさん")
+        case .weekend: return L("週末の一枚")
+        case .caption10: return L("ひとこと名人")
+        case .dual10: return L("2枚撮りマスター")
+        case .full3: return L("1日3枚")
+        case .full3x7: return L("3枚の達人")
+        case .public10: return L("世界に10枚")
         }
     }
 
     var detail: String {
         switch self {
         case .firstPost: return L("初めて投稿した")
+        case .posts10: return L("合計10枚投稿した")
+        case .posts25: return L("合計25枚投稿した")
+        case .posts50: return L("合計50枚投稿した")
+        case .posts100: return L("合計100枚投稿した")
         case .streak3: return L("3日続けて投稿した")
         case .streak7: return L("7日続けて投稿した")
+        case .streak14: return L("14日続けて投稿した")
         case .streak30: return L("30日続けて投稿した")
+        case .streak100: return L("100日続けて投稿した")
         case .under60: return L("通知から1分以内に投稿した")
         case .under30: return L("通知から30秒以内に投稿した")
         case .under10: return L("通知から10秒以内に投稿した")
-        case .posts10: return L("合計10枚投稿した")
+        case .under5: return L("通知から5秒以内に投稿した")
+        case .fast10: return L("1分以内の投稿を10回した")
+        case .fast30x5: return L("30秒以内の投稿を5回した")
+        case .friends1: return L("友達を1人追加した")
         case .friends3: return L("友達を3人追加した")
+        case .friends5: return L("友達を5人追加した")
+        case .friends10: return L("友達を10人追加した")
+        case .cities3: return L("3つの都市から投稿した")
+        case .cities10: return L("10の都市から投稿した")
+        case .earlyBird: return L("朝5時〜7時に投稿した")
+        case .nightOwl: return L("夜11時〜朝4時に投稿した")
+        case .weekend: return L("土日に4回投稿した")
+        case .caption10: return L("ひとことを10回つけた")
+        case .dual10: return L("2枚撮りで10回投稿した")
+        case .full3: return L("1日に3枚とも投稿した")
+        case .full3x7: return L("1日3枚の投稿を7日した")
+        case .public10: return L("みんなに10枚投稿した")
         }
     }
 
     var icon: String {
         switch self {
         case .firstPost: return "camera.fill"
-        case .streak3, .streak7, .streak30: return "flame.fill"
+        case .posts10: return "photo.stack.fill"
+        case .posts25: return "photo.on.rectangle.angled"
+        case .posts50: return "square.stack.3d.up.fill"
+        case .posts100: return "trophy.fill"
+        case .streak3: return "flame.fill"
+        case .streak7: return "flame.fill"
+        case .streak14: return "flame.circle.fill"
+        case .streak30: return "flame.fill"
+        case .streak100: return "crown.fill"
         case .under60: return "stopwatch.fill"
         case .under30: return "hare.fill"
         case .under10: return "bolt.fill"
-        case .posts10: return "photo.stack.fill"
+        case .under5: return "bolt.circle.fill"
+        case .fast10: return "timer"
+        case .fast30x5: return "sparkles"
+        case .friends1: return "person.crop.circle.badge.plus"
         case .friends3: return "person.3.fill"
+        case .friends5: return "person.2.fill"
+        case .friends10: return "person.3.sequence.fill"
+        case .cities3: return "map.fill"
+        case .cities10: return "globe.europe.africa.fill"
+        case .earlyBird: return "sunrise.fill"
+        case .nightOwl: return "moon.stars.fill"
+        case .weekend: return "calendar"
+        case .caption10: return "text.bubble.fill"
+        case .dual10: return "camera.on.rectangle.fill"
+        case .full3: return "3.square.fill"
+        case .full3x7: return "medal.fill"
+        case .public10: return "megaphone.fill"
         }
     }
 
     /// 他の人に見せるときの優先度（大きいほど珍しい）
     var priority: Int {
         switch self {
-        case .streak30: return 9
-        case .under10: return 8
-        case .streak7: return 7
-        case .under30: return 6
-        case .posts10: return 5
-        case .under60: return 4
-        case .streak3: return 3
-        case .friends3: return 2
         case .firstPost: return 1
+        case .posts10: return 5
+        case .posts25: return 10
+        case .posts50: return 13
+        case .posts100: return 19
+        case .streak3: return 3
+        case .streak7: return 7
+        case .streak14: return 12
+        case .streak30: return 9
+        case .streak100: return 20
+        case .under60: return 4
+        case .under30: return 6
+        case .under10: return 8
+        case .under5: return 17
+        case .fast10: return 11
+        case .fast30x5: return 15
+        case .friends1: return 1
+        case .friends3: return 2
+        case .friends5: return 5
+        case .friends10: return 12
+        case .cities3: return 6
+        case .cities10: return 16
+        case .earlyBird: return 4
+        case .nightOwl: return 4
+        case .weekend: return 5
+        case .caption10: return 6
+        case .dual10: return 7
+        case .full3: return 6
+        case .full3x7: return 14
+        case .public10: return 8
         }
     }
 
-    /// 他の人に見せる、珍しいトロフィー（優先度の高い順）
+    /// 他の人に見せる、珍しいトロフィー（優先度の高い順）。同じ系統は、いちばん上の段階だけ
     static func showcase(_ trophies: [Trophy], limit: Int = 3) -> [Trophy] {
-        Array(trophies.sorted { $0.priority > $1.priority }.prefix(limit))
+        let earned = Set(trophies)
+        let top = TrophyFamily.all.compactMap { $0.current(earned) }
+        return Array(top.sorted { $0.priority > $1.priority }.prefix(limit))
     }
 
     /// 達成しているかどうか
     func isUnlocked(_ s: AchievementInput) -> Bool {
         switch self {
         case .firstPost: return s.postCount >= 1
+        case .posts10: return s.postCount >= 10
+        case .posts25: return s.postCount >= 25
+        case .posts50: return s.postCount >= 50
+        case .posts100: return s.postCount >= 100
         case .streak3: return s.longestStreak >= 3
         case .streak7: return s.longestStreak >= 7
+        case .streak14: return s.longestStreak >= 14
         case .streak30: return s.longestStreak >= 30
+        case .streak100: return s.longestStreak >= 100
         case .under60: return (s.bestTime ?? .infinity) <= 60
         case .under30: return (s.bestTime ?? .infinity) <= 30
         case .under10: return (s.bestTime ?? .infinity) <= 10
-        case .posts10: return s.postCount >= 10
+        case .under5: return (s.bestTime ?? .infinity) <= 5
+        case .fast10: return s.fastCount(60) >= 10
+        case .fast30x5: return s.fastCount(30) >= 5
+        case .friends1: return s.friendCount >= 1
         case .friends3: return s.friendCount >= 3
+        case .friends5: return s.friendCount >= 5
+        case .friends10: return s.friendCount >= 10
+        case .cities3: return s.cityCount >= 3
+        case .cities10: return s.cityCount >= 10
+        case .earlyBird: return s.earlyBird
+        case .nightOwl: return s.nightOwl
+        case .weekend: return s.weekendPosts >= 4
+        case .caption10: return s.captionCount >= 10
+        case .dual10: return s.dualCount >= 10
+        case .full3: return s.fullDays >= 1
+        case .full3x7: return s.fullDays >= 7
+        case .public10: return s.publicCount >= 10
         }
+    }
+}
+
+/// 同じ系統のトロフィー（表示のためだけの分け方。サーバーには、これまでどおり個別の名前で置く）
+struct TrophyFamily: Identifiable {
+    let tiers: [Trophy]   // 低い段階から順に
+    var id: String { tiers[0].key }
+
+    static let all: [TrophyFamily] = [
+        TrophyFamily(tiers: [.firstPost, .posts10, .posts25, .posts50, .posts100]),
+        TrophyFamily(tiers: [.streak3, .streak7, .streak14, .streak30, .streak100]),
+        TrophyFamily(tiers: [.under60, .under30, .under10, .under5]),
+        TrophyFamily(tiers: [.friends1, .friends3, .friends5, .friends10]),
+        TrophyFamily(tiers: [.cities3, .cities10]),
+        TrophyFamily(tiers: [.full3, .full3x7]),
+        TrophyFamily(tiers: [.fast10]), TrophyFamily(tiers: [.fast30x5]),
+        TrophyFamily(tiers: [.earlyBird]), TrophyFamily(tiers: [.nightOwl]), TrophyFamily(tiers: [.weekend]),
+        TrophyFamily(tiers: [.caption10]), TrophyFamily(tiers: [.dual10]), TrophyFamily(tiers: [.public10]),
+    ]
+
+    /// いま獲得している、いちばん上の段階
+    func current(_ earned: Set<Trophy>) -> Trophy? { tiers.last { earned.contains($0) } }
+    /// 次に目指す段階（全部取っていれば nil）
+    func next(_ earned: Set<Trophy>) -> Trophy? { tiers.first { !earned.contains($0) } }
+    func earnedCount(_ earned: Set<Trophy>) -> Int { tiers.filter { earned.contains($0) }.count }
+}
+
+/// 1つの系統を1マスで見せる：いまの段階の名前と、段階の点。次の目標を、下に小さく
+struct TrophyFamilyCell: View {
+    let family: TrophyFamily
+    let earned: Set<Trophy>
+    var showNext = true
+
+    var body: some View {
+        let current = family.current(earned)
+        let shown = current ?? family.tiers[0]
+        let on = current != nil
+        let next = family.next(earned)
+        VStack(spacing: 6) {
+            Image(systemName: shown.icon).font(.title2)
+                .foregroundStyle(on ? Hi.neon : Hi.dim.opacity(0.35)).frame(height: 30)
+            Text(shown.title).font(.caption.weight(.black))
+                .foregroundStyle(on ? .white : Hi.dim)
+                .multilineTextAlignment(.center).lineLimit(2).minimumScaleFactor(0.8)
+            if family.tiers.count > 1 {
+                HStack(spacing: 4) {
+                    ForEach(Array(family.tiers.enumerated()), id: \.offset) { i, tier in
+                        Circle().fill(earned.contains(tier) ? Hi.neon : Hi.dim.opacity(0.3)).frame(width: 6, height: 6)
+                    }
+                }
+            }
+            if showNext {
+                Text(!on ? shown.detail : (next.map { LF("次：{t}", ["t": $0.title]) } ?? L("すべて達成")))
+                    .font(.system(size: 11)).foregroundStyle(Hi.dim)
+                    .multilineTextAlignment(.center).lineLimit(2)
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: showNext ? 118 : 70, alignment: .top)
+        .padding(.vertical, 10).padding(.horizontal, 6)
+        .accessibilityElement(children: .combine)
+        .accessibilityValue("\(family.earnedCount(earned)) / \(family.tiers.count)")
     }
 }
 
@@ -123,6 +318,15 @@ struct AchievementInput {
     let longestStreak: Int
     let bestTime: TimeInterval?
     let friendCount: Int
+    let cityCount: Int
+    let captionCount: Int
+    let dualCount: Int
+    let publicCount: Int
+    let weekendPosts: Int
+    let fullDays: Int
+    let earlyBird: Bool
+    let nightOwl: Bool
+    private let times: [TimeInterval]
 
     init(records: [PromptRecord], friendCount: Int) {
         let posted = records.filter { $0.postedPhotoFile != nil }
@@ -130,7 +334,22 @@ struct AchievementInput {
         bestTime = TimeAttackStats(records: records).best
         self.friendCount = friendCount
         longestStreak = AchievementInput.longestStreak(of: Set(posted.map(\.dayKey)))
+        times = TimeAttackStats(records: records).times.map(\.elapsed)
+        cityCount = Set(posted.compactMap { $0.city?.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }).count
+        captionCount = posted.filter { !($0.caption ?? "").trimmingCharacters(in: .whitespaces).isEmpty }.count
+        dualCount = posted.filter { $0.frontPhotoFile != nil }.count
+        publicCount = posted.filter(\.isForPublic).count
+        let calendar = Calendar.current
+        let dates = posted.compactMap(\.postedAt)
+        weekendPosts = dates.filter { calendar.isDateInWeekend($0) }.count
+        earlyBird = dates.contains { (5..<7).contains(calendar.component(.hour, from: $0)) }
+        nightOwl = dates.contains { let h = calendar.component(.hour, from: $0); return h >= 23 || h < 4 }
+        let perDay = Dictionary(grouping: posted, by: \.dayKey).mapValues(\.count)
+        fullDays = perDay.values.filter { $0 >= 3 }.count
     }
+
+    /// 通知から seconds 秒以内に投稿した回数
+    func fastCount(_ seconds: TimeInterval) -> Int { times.filter { $0 <= seconds }.count }
 
     /// 投稿した日（yyyy-MM-dd）の、最長の連続日数
     private static func longestStreak(of keys: Set<String>) -> Int {
@@ -157,7 +376,7 @@ struct AchievementInput {
 
 /// タイムの表示（例：1:23.4）は TodayView.swift の TimeFormat を使う
 
-/// 世界ランキングの1人分（サンプル。サーバーがないため、サンプルの人と自分の記録を並べる）
+/// 世界ランキングの1人分
 struct WorldRankEntry: Identifiable {
     let id = UUID()
     let name: String
@@ -178,61 +397,27 @@ struct WorldRankEntry: Identifiable {
     }
 }
 
-/// タイムアタックのランキング。世界を4つの地域に分ける（東アジア・オセアニア／南アジア・中東／ヨーロッパ・アフリカ／アメリカ）。
-/// サーバーがないので、他の人はサンプル。地域ごとに、同じ顔ぶれが出る。
+/// タイムアタックのランキング。世界を4つの地域（東アジア・オセアニア／南アジア・中東／ヨーロッパ・アフリカ／アメリカ）に分け、
+/// 「世界」で全員をまとめて見られる。今日の公開投稿のタイムを、速い順に並べる。
 enum WorldRanking {
     static let regions = [0, 1, 2, 3]
+    static let world = 4          // 全員
 
-    static func regionName(_ region: Int) -> String { L(PostStore.regionShortNames[region]) }
-
-    /// ランキングに出す人数
-    private static let boardSize = 10
-
-    /// 地域に住む、サンプルの人たち（その地域に都市があれば、その人たちを先に入れる）。足りない分は、地域ごとに決まった顔ぶれで補う
-    private static func entries(region: Int, at date: Date = Date()) -> [WorldRankEntry] {
-        var result = WorldSamples.all
-            .filter { PostStore.regionIndex(forOffset: $0.timeZone.secondsFromGMT(for: date)) == region }
-            .map { WorldRankEntry(name: "@" + $0.handle, countryCode: $0.code, city: $0.city, time: $0.time,
-                                  isYou: false, trophies: $0.trophies, rank: $0.rank) }
-
-        let handles = ["mika.k", "alex_r", "noor.h", "tomas.v", "yui.s", "dara_o", "sam.lee", "ines_p", "kofi.a",
-                       "lila.m", "ravi_n", "hana.t", "omar.z", "eva_k", "zoe.b", "ken.u", "ana_c", "ben.w",
-                       "lars.j", "maya_d", "joon.p", "sana.r", "theo_f", "nina.q"]
-        var seed = UInt64(region + 1) &* 2_654_435_761 &+ 97
-        func next() -> UInt64 {
-            seed = seed &* 6_364_136_223_846_793_005 &+ 1_442_695_040_888_963_407
-            return seed >> 33
-        }
-        var generator = SeededGenerator(state: seed)
-        var pool = handles.shuffled(using: &generator)
-        pool.removeAll { name in result.contains { $0.name == "@" + name } }
-        while result.count < boardSize, let name = pool.popLast() {
-            let time = 9 + Double(next() % 1400) / 10   // 9.0〜148.9秒
-            let rank: Rank = time < 15 ? .platinum : time < 35 ? .gold : time < 70 ? .silver : .bronze
-            let trophies: [Trophy] = time < 12 ? [.under10, .streak7, .firstPost]
-                : time < 32 ? [.under30, .firstPost]
-                : time < 62 ? [.under60, .firstPost] : [.firstPost]
-            result.append(WorldRankEntry(name: "@" + name, countryCode: "", city: "", time: (time * 10).rounded() / 10,
-                                         isYou: false, trophies: trophies, rank: rank))
-        }
-        return result
+    static func regionName(_ region: Int) -> String {
+        region == world ? L("世界") : L(PostStore.regionShortNames[region])
     }
 
-    /// その地域のランキング（速い順）。自分の地域なら、自己ベストを入れる
-    static func board(region: Int, myBest: TimeInterval?, myName: String, myTrophies: [Trophy] = [],
-                      myRank: Rank = .bronze) -> [WorldRankEntry] {
-        var all = entries(region: region)
-        if region == PostStore.regionIndex, let myBest {
-            all.append(WorldRankEntry(name: myName, countryCode: "", city: L("あなた"), time: myBest,
-                                      isYou: true, trophies: myTrophies, rank: myRank))
+    /// 今日のランキング（速い順）。region が world なら全員
+    static func board(region: Int, others: [WorldTime], myBest: TimeInterval?, myName: String,
+                      myTrophies: [Trophy] = [], myRank: Rank = .bronze) -> [WorldRankEntry] {
+        var list = others
+            .filter { region == world || PostStore.regionIndex(forOffset: $0.tzOffset) == region }
+            .map { WorldRankEntry(name: "@" + $0.handle, countryCode: "", city: $0.city, time: $0.elapsed, isYou: false) }
+        if let myBest, region == world || region == PostStore.regionIndex {
+            list.append(WorldRankEntry(name: myName, countryCode: "", city: L("あなた"), time: myBest,
+                                       isYou: true, trophies: myTrophies, rank: myRank))
         }
-        return all.sorted { $0.time < $1.time }
-    }
-
-    /// 自分の地域での順位（記録がなければ nil）
-    static func position(myBest: TimeInterval?) -> Int? {
-        guard let myBest else { return nil }
-        return entries(region: PostStore.regionIndex).filter { $0.time < myBest }.count + 1
+        return Array(list.sorted { $0.time < $1.time }.prefix(50))
     }
 }
 
@@ -299,7 +484,7 @@ enum HandleRule {
 
 /// ランク。トロフィーとは別に、その月に貯めたポイントで決まり、月が変わるとリセットされる。
 enum Rank: Int, CaseIterable, Comparable {
-    case bronze, silver, gold, platinum, diamond
+    case bronze, silver, gold, platinum, diamond, master, grandmaster, legend
 
     static func < (a: Rank, b: Rank) -> Bool { a.rawValue < b.rawValue }
 
@@ -310,6 +495,9 @@ enum Rank: Int, CaseIterable, Comparable {
         case .gold: return L("ゴールド")
         case .platinum: return L("プラチナ")
         case .diamond: return L("ダイヤ")
+        case .master: return L("マスター")
+        case .grandmaster: return L("グランドマスター")
+        case .legend: return L("レジェンド")
         }
     }
 
@@ -321,6 +509,9 @@ enum Rank: Int, CaseIterable, Comparable {
         case .gold: return 150
         case .platinum: return 280
         case .diamond: return 450
+        case .master: return 650
+        case .grandmaster: return 900
+        case .legend: return 1200
         }
     }
 
@@ -331,6 +522,9 @@ enum Rank: Int, CaseIterable, Comparable {
         case .gold: return .yellow
         case .platinum: return .cyan
         case .diamond: return Color(red: 0.55, green: 0.60, blue: 1.0)
+        case .master: return Color(red: 0.78, green: 0.45, blue: 1.0)
+        case .grandmaster: return Color(red: 1.0, green: 0.42, blue: 0.38)
+        case .legend: return Color(red: 1.0, green: 0.45, blue: 0.80)
         }
     }
 
@@ -339,6 +533,9 @@ enum Rank: Int, CaseIterable, Comparable {
         case .bronze, .silver, .gold: return "medal.fill"
         case .platinum: return "crown.fill"
         case .diamond: return "diamond.fill"
+        case .master: return "star.circle.fill"
+        case .grandmaster: return "flame.fill"
+        case .legend: return "sparkles"
         }
     }
 

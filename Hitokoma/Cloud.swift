@@ -1,6 +1,7 @@
 import Foundation
 import UIKit
 import Combine
+import CoreLocation
 
 // MARK: - サーバー（Firebase の REST API。SDK は使わない）
 // ・ログイン：匿名ログイン（Identity Toolkit）
@@ -24,15 +25,17 @@ struct CloudPost: Identifiable {
     let postedAt: Date
     let elapsed: Double?
     let tzOffset: Int         // 投稿した場所の、世界標準時との差（秒）
+    let latitude: Double?     // 都市の中心あたり（正確な位置ではない）。地図・地球に出すためのもの
+    let longitude: Double?
     let photo: UIImage?
     let front: UIImage?
+    var alt: String? = nil        // 写真の説明（読み上げ用。投稿した人の端末で作る）
+    var pickupOff = false         // 「今日の10枚」に選ばれたくない（本人の設定）
+    var greeting: String? = nil   // 投稿した人の言葉のあいさつ（例：Hola）
 
     /// 投稿した場所の、投稿したときの時刻（例：14:05）
     var localTime: String {
-        let f = DateFormatter()
-        f.dateFormat = "HH:mm"
-        f.timeZone = TimeZone(secondsFromGMT: tzOffset)
-        return f.string(from: postedAt)
+        Clock.string(postedAt, zone: TimeZone(secondsFromGMT: tzOffset))
     }
 }
 
@@ -89,6 +92,8 @@ final class CloudSync: ObservableObject {
     @Published private(set) var uid: String? = UserDefaults.standard.string(forKey: "cloud.uid")
     @Published var friendPosts: [CloudPost] = []
     @Published var publicPosts: [CloudPost] = []
+    /// 世界の今日のタイム（写真なしの軽い取得。ランキング用）
+    @Published var worldTimes: [WorldTime] = []
     @Published private(set) var comments: [String: [CloudComment]] = [:]
     @Published var friends: [CloudFriend] = CloudSync.loadFriends()
     @Published private(set) var lastError: String? = nil
@@ -116,6 +121,7 @@ final class CloudSync: ObservableObject {
     private var tokenExpiry = Date.distantPast
     private var refreshToken: String? = UserDefaults.standard.string(forKey: "cloud.refresh")
     private var signingIn: Task<Void, Error>?
+    private var identityCheckedAt = Date.distantPast   // 友達の名前を読み直した時刻（10分に一度）
 
     private var base: String {
         "https://firestore.googleapis.com/v1/projects/\(CloudConfig.projectID)/databases/(default)/documents"
@@ -137,12 +143,53 @@ final class CloudSync: ObservableObject {
         let task = Task { @MainActor in
             defer { signingIn = nil }
             if let refreshToken {
-                do { try await refresh(refreshToken); return } catch { /* 作り直す */ }
+                do { try await refresh(refreshToken); return } catch {
+                    // はっきり「もう使えない」と分かるときだけ、新しいアカウントを作る（通信の失敗などでは作らない）
+                    let text = error.localizedDescription
+                    let definite = ["TOKEN_EXPIRED", "INVALID_REFRESH_TOKEN", "USER_NOT_FOUND", "USER_DISABLED", "INVALID_ID_TOKEN"]
+                    guard definite.contains(where: { text.contains($0) }) else { throw error }
+                }
             }
             try await signUp()
         }
         signingIn = task
         try await task.value
+    }
+
+    /// SMS のコードを確かめて、いまのアカウントに電話番号を結びつける。
+    /// その番号のアカウントがすでにあれば（別の端末で作ったなど）、そちらに切り替える。コードが違うときは false
+    func completePhoneSignIn(sessionInfo: String, code: String, phone: String) async throws {
+        try await ensureSignedIn()
+        let first = try await phoneRequest(["sessionInfo": sessionInfo, "code": code, "idToken": idToken ?? ""])
+        var json = first
+        if json["idToken"] == nil, let proof = json["temporaryProof"] as? String {
+            json = try await phoneRequest(["temporaryProof": proof, "phoneNumber": phone])
+        }
+        guard let token = json["idToken"] as? String, let newRefresh = json["refreshToken"] as? String,
+              let newUID = json["localId"] as? String else {
+            throw CloudError.server((json["error"] as? [String: Any])?["message"] as? String ?? "phone sign-in failed")
+        }
+        let changed = newUID != uid
+        store(token: token, refresh: newRefresh, uid: newUID, expiresIn: json["expiresIn"])
+        if changed {
+            // 別のアカウントに切り替わったので、友達・投稿・通知の宛先を読み直す
+            friendPosts = []; publicPosts = []
+            await refresh(force: true)
+            await PushRegistration.shared.upload(force: true)
+        }
+    }
+
+    private func phoneRequest(_ body: [String: String]) async throws -> [String: Any] {
+        let url = URL(string: "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPhoneNumber?key=\(CloudConfig.apiKey)")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(CloudConfig.bundleHeader, forHTTPHeaderField: "X-Ios-Bundle-Identifier")
+        request.httpBody = try JSONSerialization.data(withJSONObject: body.filter { !$0.value.isEmpty })
+        let (data, _) = try await URLSession.shared.data(for: request)
+        let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
+        if json["idToken"] != nil || json["temporaryProof"] != nil { return json }
+        throw CloudError.server((json["error"] as? [String: Any])?["message"] as? String ?? "phone sign-in failed")
     }
 
     private func signUp() async throws {
@@ -199,8 +246,15 @@ final class CloudSync: ObservableObject {
             "trophies": .array(Trophy.allCases.filter { $0.isUnlocked(input) }.map { FS.string($0.key) }),
         ]
         if let best { fields["best"] = .double(best) }
-        if let region = WorldRanking.position(myBest: best) { fields["region"] = .int(region) }
-        try await patch("codes/\(FriendCode.myID)", fields: fields)
+        do {
+            try await patch("codes/\(FriendCode.myID)", fields: fields)
+        } catch {
+            // 友達コードが、別のアカウントのものになっていたら（古いアカウントの残り）、コードを作り直して、もう一度
+            guard error.localizedDescription.contains("403") else { throw error }
+            FriendCode.renew()
+            try await patch("codes/\(FriendCode.myID)", fields: fields)
+        }
+        announceRankUp(month.rank)
     }
 
     /// 自分のアイコンを、相手にも見せられるように置く（変わったときだけ送る）
@@ -289,7 +343,36 @@ final class CloudSync: ObservableObject {
         let changed = Set(list.map(\.uid)) != Set(friends.map(\.uid))
         friends = list
         saveFriends()
+        await refreshFriendIdentities()
         if changed { await updateAudience() }
+    }
+
+    /// 自分の名前と友達コードを、プロフィールに載せる（変わったときだけ）。友達の画面の名前は、ここから更新される
+    private func publishNameAndCode() async throws {
+        guard let uid else { return }
+        let stamp = "\(myName)|\(FriendCode.myID)"
+        guard UserDefaults.standard.string(forKey: "cloud.profileStamp") != stamp else { return }
+        try await patch("profiles/\(uid)", fields: ["name": .string(myName), "code": .string(FriendCode.myID)], mask: ["name", "code"])
+        UserDefaults.standard.set(stamp, forKey: "cloud.profileStamp")
+    }
+
+    /// 友達が名前（や友達コード）を変えていたら、こちらの友達一覧にも反映する（10分に一度）
+    func refreshFriendIdentities(force: Bool = false) async {
+        guard let uid, force || Date().timeIntervalSince(identityCheckedAt) > 600 else { return }
+        identityCheckedAt = Date()
+        var changedAny = false
+        for friend in friends {
+            guard let doc = try? await get("profiles/\(friend.uid)"), let f = doc["fields"] as? [String: Any] else { continue }
+            let name = FS.string(f, "name").flatMap { $0.isEmpty ? nil : $0 } ?? friend.name
+            let code = FS.string(f, "code").flatMap { $0.isEmpty ? nil : $0 } ?? friend.code
+            guard name != friend.name || code != friend.code,
+                  let index = friends.firstIndex(where: { $0.uid == friend.uid }) else { continue }
+            friends[index].name = name
+            friends[index].code = code
+            changedAny = true
+            try? await patch("friends/\(uid)/list/\(friend.uid)", fields: ["name": .string(name), "code": .string(code)], mask: ["name", "code"])
+        }
+        if changedAny { saveFriends() }
     }
 
     var audience: [FS] {
@@ -327,8 +410,18 @@ final class CloudSync: ObservableObject {
                     "photo": .bytes(main),
                 ]
                 if let small { fields["front"] = .bytes(small) }
+                fields["greeting"] = .string(Greeting.local)
+                fields["pickupOff"] = .bool(UserDefaults.standard.bool(forKey: "pickupOptOut"))
+                if let alt = await PhotoDescriber.altText(for: photo) { fields["alt"] = .string(alt) }
                 if let caption = record.caption { fields["caption"] = .string(caption) }
-                if let city = record.city { fields["city"] = .string(city) }
+                if let city = record.city {
+                    fields["city"] = .string(city)
+                    // 地図・地球に出すため、都市の中心あたりの座標（約10km刻み）を添える。正確な位置は送らない
+                    if let c = await CityCoordinates.lookup(city) {
+                        fields["lat"] = .double(c.latitude)
+                        fields["lon"] = .double(c.longitude)
+                    }
+                }
                 if let elapsed = record.elapsed { fields["elapsed"] = .double(elapsed) }
                 try await patch("posts/\(id)", fields: fields)
                 markUploaded(record)
@@ -389,9 +482,11 @@ final class CloudSync: ObservableObject {
         if !force, let lastSync, Date().timeIntervalSince(lastSync) < 8 { return }
         do {
             try await ensureSignedIn()
-            try await publishProfile()
+            // 1つの手順が失敗しても、投稿の読み込みは止めない
+            do { try await publishProfile() } catch { report(error) }
             await publishAvatar()
-            try await loadFriendList()
+            do { try await publishNameAndCode() } catch { report(error) }
+            do { try await loadFriendList() } catch { report(error) }
             await loadBlocks()
             await loadInbox()
             let day = PostStore.shared.activeDayKey()
@@ -409,7 +504,10 @@ final class CloudSync: ObservableObject {
                 FS.filter("toPublic", "EQUAL", .bool(true)),
                 FS.filter("dayKey", "EQUAL", .string(day)),
             ])
+            async let timeDocs = queryTimes(day: day)
             let (f, p) = try await (friendDocs, publicDocs)
+            NSLog("cloud: refresh ok friends=%d public=%d", f.count, p.count)
+            if let times = try? await timeDocs { worldTimes = times.filter { $0.owner != uid && !blocked.contains($0.owner) } }
             friendPosts = f.filter { $0.owner != uid && $0.toFriends && !blocked.contains($0.owner) }.sorted { $0.postedAt > $1.postedAt }
             publicPosts = p.filter { $0.owner != uid && !blocked.contains($0.owner) }.sorted { $0.postedAt > $1.postedAt }
             lastSync = Date()
@@ -419,17 +517,92 @@ final class CloudSync: ObservableObject {
         }
     }
 
+    /// その日の、世界の公開投稿（自分とブロックした人を除く。「今日の10枚」の元）
+    func pickupPool(day: String) async -> [CloudPost] {
+        guard isOn else { return [] }
+        do { try await ensureSignedIn() } catch { return [] }
+        let posts = (try? await query([
+            FS.filter("toPublic", "EQUAL", .bool(true)),
+            FS.filter("dayKey", "EQUAL", .string(day)),
+        ])) ?? []
+        return posts.filter { $0.owner != uid && !$0.pickupOff && !blocked.contains($0.owner) }
+    }
+
+    /// 「今日の10枚」に選ばれるかの設定を変えたとき：すでに送った、最近の自分の投稿にも反映する
+    func setPickupOff(_ off: Bool) async {
+        guard isOn else { return }
+        do { try await ensureSignedIn() } catch { return }
+        let store = PostStore.shared
+        let now = Date()
+        let recent = Set((0...2).compactMap { Calendar.current.date(byAdding: .day, value: -$0, to: now) }.map(PostStore.dayKey(for:)))
+        for record in store.records where record.postedPhotoFile != nil && record.isForPublic && recent.contains(record.dayKey) {
+            guard let id = cloudID(for: record.id) else { continue }
+            try? await patch("posts/\(id)", fields: ["pickupOff": .bool(off)], mask: ["pickupOff"])
+        }
+    }
+
+    /// 友達のカレンダー用：投稿のある日と、そのお題だけ（写真は読まない）。読める投稿だけを、2つの検索で集める
+    func friendPostIndex(_ friendUID: String) async -> [FriendPostMeta] {
+        guard isOn, let uid else { return [] }
+        do { try await ensureSignedIn() } catch { return [] }
+        func run(_ extra: [String: Any]) async -> [FriendPostMeta] {
+            let body: [String: Any] = ["structuredQuery": [
+                "from": [["collectionId": "posts"]],
+                "where": ["compositeFilter": ["op": "AND", "filters": [FS.filter("owner", "EQUAL", .string(friendUID)), extra]]],
+                "select": ["fields": [["fieldPath": "dayKey"], ["fieldPath": "prompt"]]],
+                "limit": 500,
+            ]]
+            guard let rows = try? await sendArray("POST", url: URL(string: "\(base):runQuery")!, json: body) else { return [] }
+            return rows.compactMap { row in
+                guard let doc = row["document"] as? [String: Any], let name = doc["name"] as? String,
+                      let f = doc["fields"] as? [String: Any], let day = FS.string(f, "dayKey") else { return nil }
+                return FriendPostMeta(id: String(name.split(separator: "/").last ?? ""), dayKey: day, prompt: FS.string(f, "prompt") ?? "")
+            }
+        }
+        async let mine = run(FS.filter("audience", "ARRAY_CONTAINS", .string(uid)))
+        async let everyone = run(FS.filter("toPublic", "EQUAL", .bool(true)))
+        var seen = Set<String>()
+        return (await mine + everyone).filter { seen.insert($0.id).inserted }.sorted { $0.dayKey > $1.dayKey }
+    }
+
+    /// 1件の投稿を、写真つきで読む
+    func friendPost(_ id: String) async -> CloudPost? {
+        guard let doc = try? await get("posts/\(id)") else { return nil }
+        return Self.post(from: doc)
+    }
+
     private func query(_ filters: [[String: Any]]) async throws -> [CloudPost] {
         let body: [String: Any] = ["structuredQuery": [
             "from": [["collectionId": "posts"]],
             "where": ["compositeFilter": ["op": "AND", "filters": filters]],
-            "limit": 40,
+            "limit": 60,
         ]]
         let url = URL(string: "\(base):runQuery")!
         let rows = try await sendArray("POST", url: url, json: body)
         return rows.compactMap { row in
             guard let doc = row["document"] as? [String: Any] else { return nil }
             return Self.post(from: doc)
+        }
+    }
+
+    /// 今日の公開投稿のタイムだけを、写真なしで読む（写真を除くので、たくさん読んでも軽い）
+    private func queryTimes(day: String) async throws -> [WorldTime] {
+        let fields = ["owner", "handle", "name", "city", "elapsed", "tzOffset"]
+        let body: [String: Any] = ["structuredQuery": [
+            "from": [["collectionId": "posts"]],
+            "where": ["compositeFilter": ["op": "AND", "filters": [
+                FS.filter("toPublic", "EQUAL", .bool(true)),
+                FS.filter("dayKey", "EQUAL", .string(day)),
+            ]]],
+            "select": ["fields": fields.map { ["fieldPath": $0] }],
+            "limit": 1000,
+        ]]
+        let rows = try await sendArray("POST", url: URL(string: "\(base):runQuery")!, json: body)
+        return rows.compactMap { row in
+            guard let doc = row["document"] as? [String: Any], let f = doc["fields"] as? [String: Any],
+                  let owner = FS.string(f, "owner"), let elapsed = FS.double(f, "elapsed") else { return nil }
+            return WorldTime(owner: owner, handle: FS.string(f, "handle") ?? "", city: FS.string(f, "city") ?? "",
+                             elapsed: elapsed, tzOffset: Int(FS.double(f, "tzOffset") ?? 0))
         }
     }
 
@@ -452,8 +625,13 @@ final class CloudSync: ObservableObject {
             postedAt: FS.date(f, "postedAt") ?? Date(),
             elapsed: FS.double(f, "elapsed"),
             tzOffset: Int(FS.double(f, "tzOffset") ?? 0),
+            latitude: FS.double(f, "lat"),
+            longitude: FS.double(f, "lon"),
             photo: FS.bytes(f, "photo").flatMap(UIImage.init(data:)),
-            front: FS.bytes(f, "front").flatMap(UIImage.init(data:)))
+            front: FS.bytes(f, "front").flatMap(UIImage.init(data:)),
+            alt: FS.string(f, "alt"),
+            pickupOff: FS.bool(f, "pickupOff") ?? false,
+            greeting: FS.string(f, "greeting"))
     }
 
     // MARK: コメント
@@ -547,6 +725,12 @@ final class CloudSync: ObservableObject {
         if auth, let idToken { request.setValue("Bearer \(idToken)", forHTTPHeaderField: "Authorization") }
         let (data, response) = try await URLSession.shared.data(for: request)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        if status >= 300, status != 401 {
+            // どの操作が断られたかを、端末のログに残す（トークンは書かない）
+            #if DEBUG
+            NSLog("cloud: %@ %@ -> HTTP %d", method, url.path, status)
+            #endif
+        }
         if auth, status == 401 {   // 期限切れ：入り直して、1回だけやり直す
             tokenExpiry = .distantPast
             idToken = nil
@@ -580,7 +764,32 @@ final class CloudSync: ObservableObject {
         return json
     }
 
+    // MARK: アカウントの削除（認証のアカウントと、この端末の登録情報）
+
+    /// 認証のアカウントそのものを消す。古いログインだと、もう一度確認が必要（CREDENTIAL_TOO_OLD_LOGIN_AGAIN）
+    func deleteAuthAccount() async throws {
+        try await ensureSignedIn()
+        guard let token = idToken else { throw CloudError.server("not signed in") }
+        let url = URL(string: "https://identitytoolkit.googleapis.com/v1/accounts:delete?key=\(CloudConfig.apiKey)")!
+        _ = try await send("POST", url: url, json: ["idToken": token], auth: false)
+    }
+
+    /// 削除のあと、この端末の中の、アカウントの記憶を空にする
+    func resetLocalIdentity() {
+        idToken = nil
+        refreshToken = nil
+        tokenExpiry = .distantPast
+        uid = nil
+        friends = []
+        friendPosts = []; publicPosts = []; worldTimes = []
+        notices = []; messages = [:]; blocked = []
+        sentRequests = []
+    }
+
     func report(_ error: Error) {
+        // 画面を切り替えたときの取り消しは、失敗ではない
+        if error is CancellationError { return }
+        if let url = error as? URLError, url.code == .cancelled { return }
         let text = error.localizedDescription
         lastError = text
         print("☁️ Cloud error:", text)   // 索引（index）が要るときは、作るためのリンクがここに出る
@@ -680,5 +889,52 @@ extension UIImage {
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1
         return UIGraphicsImageRenderer(size: target, format: format).image { _ in draw(in: CGRect(origin: .zero, size: target)) }
+    }
+}
+
+/// 都市の名前から、都市の中心あたりの座標を求める（小数1桁＝約10km刻みに丸める）。調べた結果は端末に残す
+enum CityCoordinates {
+    private static let key = "cityCoordinates"
+
+    @MainActor
+    static func lookup(_ city: String) async -> (latitude: Double, longitude: Double)? {
+        var cache = UserDefaults.standard.dictionary(forKey: key) as? [String: [Double]] ?? [:]
+        if let hit = cache[city], hit.count == 2 { return (hit[0], hit[1]) }
+        guard let location = try? await CLGeocoder().geocodeAddressString(city).first?.location else { return nil }
+        let lat = (location.coordinate.latitude * 10).rounded() / 10
+        let lon = (location.coordinate.longitude * 10).rounded() / 10
+        cache[city] = [lat, lon]
+        UserDefaults.standard.set(cache, forKey: key)
+        return (lat, lon)
+    }
+}
+
+
+/// 友達のカレンダーに出す、1件分の目印（日付とお題）
+struct FriendPostMeta: Identifiable {
+    let id: String
+    let dayKey: String
+    let prompt: String
+}
+
+/// 世界の誰かの、今日のタイム（ランキング用）
+struct WorldTime: Identifiable {
+    var id: String { owner }
+    let owner: String
+    let handle: String
+    let city: String
+    let elapsed: Double
+    let tzOffset: Int
+}
+
+
+/// 投稿した人の言葉の、短いあいさつ（iPhone の言語から決める）
+enum Greeting {
+    static var local: String {
+        let code = Locale.preferredLanguages.first.flatMap { Locale(identifier: $0).language.languageCode?.identifier } ?? "en"
+        let table = ["ja": "やあ", "ko": "안녕", "zh": "你好", "hi": "नमस्ते", "ar": "مرحبا", "sw": "Jambo", "fr": "Salut",
+                     "de": "Hallo", "is": "Halló", "pt": "Oi", "en": "Hey", "es": "Hola", "it": "Ciao", "ru": "Привет",
+                     "th": "สวัสดี", "vi": "Xin chào", "id": "Halo", "tr": "Merhaba", "nl": "Hoi", "sv": "Hej"]
+        return table[code] ?? "Hi"
     }
 }

@@ -72,6 +72,12 @@ struct GlowPalette {
             return GlowPalette(top: rgb(0x06505E), bottom: rgb(0x18B5C4), left: rgb(0x1E6BFF), right: rgb(0x3DF0D0), halo: rgb(0xA8F2F2), core: rgb(0xEFFFFF))
         case .diamond:
             return GlowPalette(top: rgb(0x10157A), bottom: rgb(0x4A52FF), left: rgb(0xB03DFF), right: rgb(0x3DB8FF), halo: rgb(0xC0C8FF), core: rgb(0xF4F5FF))
+        case .master:
+            return GlowPalette(top: rgb(0x3A0E8A), bottom: rgb(0x9B4DFF), left: rgb(0x5B16B8), right: rgb(0xE07AFF), halo: rgb(0xE8C8FF), core: rgb(0xFAF0FF))
+        case .grandmaster:
+            return GlowPalette(top: rgb(0x7A1010), bottom: rgb(0xFF5A3D), left: rgb(0xB01E2A), right: rgb(0xFF9A5A), halo: rgb(0xFFC0A0), core: rgb(0xFFF2EA))
+        case .legend:
+            return GlowPalette(top: rgb(0x5A0E6A), bottom: rgb(0xFF4DA8), left: rgb(0x7A2BFF), right: rgb(0xFFC83D), halo: rgb(0xFFD0F0), core: rgb(0xFFF6FB))
         }
     }
 }
@@ -85,6 +91,9 @@ extension Rank {
         case .gold: return [rgb(0xC98A00), rgb(0x4A2A00)]
         case .platinum: return [rgb(0x0E8C9B), rgb(0x06323A)]
         case .diamond: return [rgb(0x2B3BFF), rgb(0x0A1570)]
+        case .master: return [rgb(0x8A3BE0), rgb(0x2A0A5A)]
+        case .grandmaster: return [rgb(0xE0452E), rgb(0x5A0E10)]
+        case .legend: return [rgb(0xFF3D9A), rgb(0x4A1A8A)]
         }
     }
 }
@@ -265,6 +274,7 @@ struct HiSegment<Value: Hashable>: View {
         }
         .padding(4)
         .background(Capsule().fill(Hi.tile))
+        .sensoryFeedback(.selection, trigger: selection)
     }
 }
 
@@ -299,6 +309,7 @@ struct HiTabBar: View {
         .padding(.top, 8)
         .padding(.bottom, 2)
         .background(Color.black.ignoresSafeArea(edges: .bottom))
+        .sensoryFeedback(.selection, trigger: selection)
     }
 
     private func item(_ tab: AppTab, icon: String, label: String) -> some View {
@@ -317,5 +328,78 @@ struct HiTabBar: View {
         .buttonStyle(.plain)
         .accessibilityLabel(label)
         .accessibilityAddTraits(isOn ? .isSelected : [])
+    }
+}
+
+
+// MARK: - 左端から右へスワイプして戻る（全画面で開いた画面用）
+
+/// 全画面で開いた画面は、システムの「スワイプで戻る」が使えないので、左の端から右へなぞると閉じられるようにする。
+/// 指に画面がついてきて、離したときに、途中までなら戻り、半分以上なら閉じる。
+struct EdgeSwipeBack: ViewModifier {
+    var anywhere = false   // 横にスクロールするものがない画面は、どこから右へなぞっても戻れる
+    @Environment(\.dismiss) private var dismiss
+    @State private var dragX: CGFloat = 0
+    @State private var tracking = false
+
+    private func gesture(minimum: CGFloat, requireHorizontal: Bool) -> some Gesture {
+        DragGesture(minimumDistance: minimum, coordinateSpace: .global)
+            .onChanged { value in
+                if requireHorizontal && !tracking {
+                    guard value.translation.width > abs(value.translation.height) * 1.5 else { return }
+                }
+                tracking = true
+                guard value.translation.width > 0 else { return }
+                dragX = value.translation.width
+            }
+            .onEnded { value in
+                guard tracking else { return }
+                tracking = false
+                let width = UIScreen.main.bounds.width
+                if value.translation.width > 80 || value.predictedEndTranslation.width > 200 {
+                    withAnimation(.easeOut(duration: 0.18)) { dragX = width }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
+                        var transaction = Transaction()
+                        transaction.disablesAnimations = true
+                        withTransaction(transaction) { dismiss() }
+                    }
+                } else {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { dragX = 0 }
+                }
+            }
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .offset(x: dragX)
+            .simultaneousGesture(anywhere ? gesture(minimum: 20, requireHorizontal: true) : nil)
+            // 左の端に、細い「つかみ場所」を重ねる。スクロールや他のジェスチャーに邪魔されず、端から始めたなぞりを確実に受け取る
+            .overlay(alignment: .leading) {
+                Color.clear
+                    .frame(width: 24)
+                    .contentShape(Rectangle())
+                    .gesture(gesture(minimum: 6, requireHorizontal: false))
+            }
+    }
+}
+
+extension View {
+    func edgeSwipeBack(anywhere: Bool = false) -> some View { modifier(EdgeSwipeBack(anywhere: anywhere)) }
+}
+
+
+// MARK: - タブのスワイプから外す場所（横にスクロールする列）
+
+@MainActor enum TabSwipeGate { static var blocked: [AppTab: [String: CGRect]] = [:] }
+
+extension View {
+    /// ここから始めたスワイプでは、タブを切り替えない（横にスクロールする列のため）
+    func blocksTabSwipe(_ tab: AppTab, id: String) -> some View {
+        background(GeometryReader { g in
+            Color.clear
+                .onAppear { TabSwipeGate.blocked[tab, default: [:]][id] = g.frame(in: .global) }
+                .onChange(of: g.frame(in: .global)) { _, f in TabSwipeGate.blocked[tab, default: [:]][id] = f }
+                .onDisappear { TabSwipeGate.blocked[tab]?[id] = nil }
+        })
     }
 }

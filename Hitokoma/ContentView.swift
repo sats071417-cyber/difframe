@@ -6,8 +6,14 @@ struct ContentView: View {
     @State private var selection: AppTab = .today
     @State private var visited: Set<AppTab> = [.today]   // 開いた画面だけ作る（地図を最初から読み込まない）
     @State private var showCapture = false
+    @State private var dragX: CGFloat = 0           // 横にスワイプしている量
+    @State private var swiping = false              // いま、画面の切り替えをなぞっている
+    @State private var swipeDecided = false         // このなぞりを、切り替えとして扱うか決めた
     @ObservedObject private var router = PushRouter.shared
+    @ObservedObject private var worldFocus = WorldFocus.shared
     @State private var showNotices = false
+    @State private var showPickup = false
+    @ObservedObject private var pickup = MorningPickup.shared
     @State private var pushPost: CommentTarget? = nil
     @State private var pushChat: CloudFriend? = nil
     @State private var showFull = false
@@ -30,12 +36,13 @@ struct ContentView: View {
             ForEach(AppTab.allCases) { tab in
                 if visited.contains(tab) {
                     screen(for: tab)
-                        .opacity(selection == tab ? 1 : 0)
-                        .allowsHitTesting(selection == tab)
+                        .offset(x: tabOffset(tab))   // 指についてくる。隣の画面が、横から入ってくる
+                        .allowsHitTesting(selection == tab && !swiping)
                         .accessibilityHidden(selection != tab)
                 }
             }
         }
+        .simultaneousGesture(tabSwipe)
         .id(languageRaw)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             HiTabBar(selection: $selection, onCapture: capture)
@@ -55,14 +62,25 @@ struct ContentView: View {
                 }
             }
         }
-        .sheet(item: $viewingCode) { PersonProfileSheet(code: $0.id, canAdd: true) }
-        .sheet(isPresented: $showNotices) { InboxSheet() }
-        .sheet(item: $pushPost) { t in
-            CommentSheet(postID: t.id, owner: t.owner, caption: t.caption, image: t.image,
+        .fullScreenCover(item: $viewingCode) { PersonProfileSheet(code: $0.id, canAdd: true) }
+        .fullScreenCover(isPresented: $showNotices) { InboxSheet() }
+        .fullScreenCover(isPresented: $showPickup) {
+            MorningPickupSheet(pickup: pickup) { p in
+                showPickup = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    pushPost = CommentTarget(id: p.id, owner: p.name.isEmpty ? "@" + p.handle : p.name,
+                                             caption: p.caption, image: p.photo, front: p.front, cloudID: p.id)
+                }
+            }
+            .task { await pickup.refresh(force: true) }
+        }
+        .fullScreenCover(item: $pushPost) { t in
+            CommentSheet(postID: t.id, owner: t.owner, caption: t.caption, image: t.image, front: t.front,
                          prompt: t.prompt, cloudID: t.cloudID, ownRecordID: t.ownRecordID, focusID: t.focusID)
                 .environmentObject(store)
         }
-        .sheet(item: $pushChat) { ChatView(friend: $0) }
+        .fullScreenCover(item: $pushChat) { ChatView(friend: $0) }
+        .onChange(of: worldFocus.request?.id) { _, id in if id != nil { selection = .world } }
         .onChange(of: router.route) { _, _ in openPushRoute() }
         .onAppear { openPushRoute() }
         .alert(L("今日のお題は、通知で届きます"), isPresented: $showHidden) {
@@ -102,6 +120,57 @@ struct ContentView: View {
         }
     }
 
+    private var tabOrder: [AppTab] { AppTab.allCases.map { $0 } }
+
+    private func tabOffset(_ tab: AppTab) -> CGFloat {
+        guard let i = tabOrder.firstIndex(of: tab), let s = tabOrder.firstIndex(of: selection) else { return 0 }
+        return CGFloat(i - s) * UIScreen.main.bounds.width + dragX
+    }
+
+    /// 左右にスワイプして、今日・タイムライン・世界・自分を切り替える。指に画面がついてきて、隣の画面が横から入ってくる。
+    /// 地図や写真の横スクロールとぶつからないように、画面の端から始めたときだけ効く画面がある。
+    private var tabSwipe: some Gesture {
+        DragGesture(minimumDistance: 15, coordinateSpace: .global)
+            .onChanged { value in
+                let dx = value.translation.width, dy = value.translation.height
+                if !swipeDecided {
+                    swipeDecided = true
+                    // 横にスクロールする列の上から始めたときは、切り替えない
+                    let inRow = TabSwipeGate.blocked[selection]?.values.contains(where: { $0.contains(value.startLocation) }) == true
+                    let width = UIScreen.main.bounds.width
+                    let fromEdge = value.startLocation.x < 40 || value.startLocation.x > width - 40
+                    // 全面で効くのは、「今日」（撮った写真が出ていないとき）・タイムライン・自分。地図と写真の横スクロールは、端から始めたときだけ
+                    let hasPhotos = store.records(day: store.activeDayKey()).contains { $0.postedPhotoFile != nil }
+                    let anywhere = (selection == .today && !hasPhotos) || selection == .friends || selection == .profile
+                    swiping = !inRow && abs(dx) > abs(dy) * 1.5 && (anywhere || fromEdge)
+                    if swiping, let i = tabOrder.firstIndex(of: selection) {
+                        // 入ってくる隣の画面を、先に作っておく
+                        if i > 0 { visited.insert(tabOrder[i - 1]) }
+                        if i + 1 < tabOrder.count { visited.insert(tabOrder[i + 1]) }
+                    }
+                }
+                guard swiping, let i = tabOrder.firstIndex(of: selection) else { return }
+                // 端の画面では、ゴムのように、少しだけ動く
+                let blocked = (dx > 0 && i == 0) || (dx < 0 && i == tabOrder.count - 1)
+                dragX = blocked ? dx * 0.25 : dx
+            }
+            .onEnded { value in
+                defer { swipeDecided = false }
+                guard swiping, let i = tabOrder.firstIndex(of: selection) else { swiping = false; return }
+                let dx = value.translation.width
+                let predicted = value.predictedEndTranslation.width
+                var next = i
+                if dx < -80 || predicted < -200 { next = i + 1 } else if dx > 80 || predicted > 200 { next = i - 1 }
+                if !tabOrder.indices.contains(next) { next = i }
+                withAnimation(.easeOut(duration: 0.25)) {
+                    selection = tabOrder[next]
+                    dragX = 0
+                }
+                // 動きが終わってから、触れるようにする
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.26) { swiping = false }
+            }
+    }
+
     @ViewBuilder
     private func screen(for tab: AppTab) -> some View {
         switch tab {
@@ -121,6 +190,7 @@ struct ContentView: View {
 
     /// リンクやウィジェットから開いたとき（hitokoma://today、world、add?id=…）
     private func handle(_ url: URL) {
+        if FirebaseBoot.canHandle(url) { return }   // 電話認証の途中の画面から戻ってきた
         guard url.scheme == "hitokoma" else { return }
         switch url.host {
         case "today": selection = .today
@@ -156,6 +226,8 @@ extension ContentView {
         switch route {
         case .notices:
             showNotices = true
+        case .pickup:
+            showPickup = true
         case .chat(let friend):
             pushChat = friend
         case .post(let postID, let name):

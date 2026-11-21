@@ -17,6 +17,11 @@ enum FriendCode {
         return id
     }
 
+    /// 友達コードを作り直す（サーバーでほかの人のものになっているとき）
+    static func renew() {
+        UserDefaults.standard.removeObject(forKey: key)
+    }
+
     /// 共有用のURL（LINEなどで送れる）
     static var shareURL: URL {
         URL(string: "\(scheme)://add?id=\(myID)")!

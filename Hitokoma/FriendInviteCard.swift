@@ -151,7 +151,7 @@ struct FriendInviteSheet: View {
         .sheet(isPresented: $showShare) {
             if let card { ActivitySheet(items: [card]) }
         }
-        .sheet(item: $scanned) { target in
+        .fullScreenCover(item: $scanned) { target in
             PersonProfileSheet(code: target.id, canAdd: true)
         }
     }

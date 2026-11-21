@@ -26,16 +26,18 @@ WIDGET = "HitokomaWidget"
 
 APP_SOURCES = ["HitokomaApp.swift", "ContentView.swift", "TodayView.swift",
                "FriendsView.swift", "WorldMapView.swift",
-               "SamplePosts.swift", "PostStore.swift", "CalendarView.swift", "NotificationScheduler.swift",
+               "PostStore.swift", "CalendarView.swift", "NotificationScheduler.swift",
                "FriendCode.swift", "PromptArt.swift", "PromptVerifier.swift", "ProfileView.swift",
-               "Achievements.swift", "Theme.swift", "WorldView.swift", "WorldSamples.swift",
+               "Achievements.swift", "Theme.swift", "WorldView.swift", "WorldPin.swift", "MorningPickup.swift", "LocationMap.swift",
                "CaptureFlow.swift", "WidgetBridge.swift", "OnboardingView.swift", "PromptCatalog.swift",
-               "Account.swift", "SignUpView.swift", "ContactsView.swift", "Localization.swift", "LocalizedEN.swift", "LocalizedZH.swift", "LocalizedKO.swift", "LocalizedES.swift", "TimelineScreen.swift", "Social.swift", "CityLocator.swift", "GlobeView.swift", "SettingsView.swift", "ShareCard.swift", "CloudConfig.swift", "Cloud.swift", "CloudViews.swift", "FriendList.swift", "CloudInbox.swift", "InboxViews.swift", "ChatMedia.swift", "BackgroundSync.swift", "LiveActivityBridge.swift", "FriendInviteCard.swift", "PushRegistration.swift", "PushRouter.swift"]
+               "Account.swift", "SignUpView.swift", "ContactsView.swift", "Localization.swift", "LocalizedEN.swift", "LocalizedZH.swift", "LocalizedKO.swift", "LocalizedES.swift", "LocalizedFR.swift", "TimelineScreen.swift", "Social.swift", "CityLocator.swift", "GlobeView.swift", "SettingsView.swift", "ShareCard.swift", "CloudConfig.swift", "Cloud.swift", "CloudViews.swift", "FriendList.swift", "CloudInbox.swift", "InboxViews.swift", "ChatMedia.swift", "BackgroundSync.swift", "LiveActivityBridge.swift", "FriendInviteCard.swift", "PushRegistration.swift", "PushRouter.swift", "FirebasePhone.swift", "Sun.swift", "AccountDeletion.swift", "GalleryStyle.swift", "AIFeatures.swift"]
 def ftype(name):
+    if name.endswith('.plist'): return 'text.plist.xml'
     return 'folder.assetcatalog' if name.endswith('.xcassets') else 'text.json'
 
 
-APP_RESOURCES = ["sample_posts.json", "Assets.xcassets"]
+APP_RESOURCES = ["Assets.xcassets", "GoogleService-Info.plist"]
+FIREBASE_URL = "https://github.com/firebase/firebase-ios-sdk"
 WIDGET_SOURCES = ["HitokomaWidget.swift"]
 SHARED_SOURCES = ["WidgetSnapshot.swift", "AppGroup.swift", "PromptActivity.swift"]
 LOCATION_REASON = "地図であなたのいる場所を示したり、投稿に都市の名前（例：東京）をつけるために使います。正確な位置は送信しません。"
@@ -94,9 +96,9 @@ def main() -> None:
                PLIST_HEAD +
                "\t<key>CFBundleURLTypes</key>\n\t<array>\n\t\t<dict>\n"
                "\t\t\t<key>CFBundleURLName</key>\n\t\t\t<string>" + bundle_id + "</string>\n"
-               "\t\t\t<key>CFBundleURLSchemes</key>\n\t\t\t<array>\n\t\t\t\t<string>hitokoma</string>\n\t\t\t</array>\n"
+               "\t\t\t<key>CFBundleURLSchemes</key>\n\t\t\t<array>\n\t\t\t\t<string>hitokoma</string>\n\t\t\t\t<string>app-1-4593850939-ios-17a417c2fb93002bf41a1e</string>\n\t\t\t</array>\n"
                "\t\t</dict>\n\t</array>\n"
-               "\t<key>UIBackgroundModes</key>\n\t<array>\n\t\t<string>fetch</string>\n\t</array>\n"
+               "\t<key>UIBackgroundModes</key>\n\t<array>\n\t\t<string>fetch</string>\n\t\t<string>remote-notification</string>\n\t</array>\n"
                "\t<key>BGTaskSchedulerPermittedIdentifiers</key>\n\t<array>\n\t\t<string>" + bundle_id + ".refresh</string>\n\t</array>\n"
                "\t<key>UISupportedInterfaceOrientations</key>\n\t<array>\n\t\t<string>UIInterfaceOrientationPortrait</string>\n\t</array>\n" + PLIST_TAIL)
     write_text(os.path.join(dirs[WIDGET], "Info.plist"),
@@ -125,7 +127,7 @@ def main() -> None:
         "sources_phase", "frameworks_phase", "resources_phase", "debug_proj", "release_proj",
         "debug_target", "release_target", "config_list_proj", "config_list_target", "app_ref",
         "w_target", "w_sources", "w_frameworks", "w_resources", "w_debug", "w_release", "w_config_list",
-        "w_ref", "embed_phase", "embed_build", "proxy", "dependency"]}
+        "w_ref", "embed_phase", "embed_build", "proxy", "dependency", "pkg_ref", "pkg_prod", "pkg_build"]}
 
     def fid(folder, name):
         return uid(f"file_{folder}_{name}")
@@ -149,6 +151,7 @@ def main() -> None:
         w(f"\t\t{bid('Shared', name, 'widget')} /* {name} in Sources */ = {{isa = PBXBuildFile; fileRef = {fid('Shared', name)} /* {name} */; }};")
     for name in WIDGET_SOURCES:
         w(f"\t\t{bid(WIDGET, name, 'widget')} /* {name} in Sources */ = {{isa = PBXBuildFile; fileRef = {fid(WIDGET, name)} /* {name} */; }};")
+    w(f"\t\t{ids['pkg_build']} /* FirebaseAuth in Frameworks */ = {{isa = PBXBuildFile; productRef = {ids['pkg_prod']} /* FirebaseAuth */; }};")
     w(f"\t\t{ids['embed_build']} /* {WIDGET}.appex in Embed Foundation Extensions */ = {{isa = PBXBuildFile; "
       f"fileRef = {ids['w_ref']} /* {WIDGET}.appex */; settings = {{ATTRIBUTES = (RemoveHeadersOnCopy, ); }}; }};")
     w("/* End PBXBuildFile section */")
@@ -183,8 +186,9 @@ def main() -> None:
     # ---- frameworks phases
     w("\n/* Begin PBXFrameworksBuildPhase section */")
     for key in ("frameworks_phase", "w_frameworks"):
+        fw = f"{ids['pkg_build']} /* FirebaseAuth in Frameworks */, " if key == "frameworks_phase" else ""
         w(f"\t\t{ids[key]} /* Frameworks */ = {{isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; "
-          f"files = (); runOnlyForDeploymentPostprocessing = 0; }};")
+          f"files = ({fw}); runOnlyForDeploymentPostprocessing = 0; }};")
     w("/* End PBXFrameworksBuildPhase section */")
 
     # ---- groups
@@ -204,7 +208,7 @@ def main() -> None:
     w(f"\t\t{ids['target']} /* {APP} */ = {{isa = PBXNativeTarget; buildConfigurationList = {ids['config_list_target']}; "
       f"buildPhases = ({ids['sources_phase']} /* Sources */, {ids['frameworks_phase']} /* Frameworks */, "
       f"{ids['resources_phase']} /* Resources */, {ids['embed_phase']} /* Embed Foundation Extensions */, ); buildRules = (); "
-      f"dependencies = ({ids['dependency']} /* PBXTargetDependency */, ); name = {APP}; productName = {APP}; "
+      f"dependencies = ({ids['dependency']} /* PBXTargetDependency */, ); name = {APP}; packageProductDependencies = ({ids['pkg_prod']} /* FirebaseAuth */, ); productName = {APP}; "
       f"productReference = {ids['app_ref']} /* {APP}.app */; productType = \"com.apple.product-type.application\"; }};")
     w(f"\t\t{ids['w_target']} /* {WIDGET} */ = {{isa = PBXNativeTarget; buildConfigurationList = {ids['w_config_list']}; "
       f"buildPhases = ({ids['w_sources']} /* Sources */, {ids['w_frameworks']} /* Frameworks */, {ids['w_resources']} /* Resources */, ); "
@@ -217,6 +221,7 @@ def main() -> None:
       f"LastUpgradeCheck = 1600; }}; buildConfigurationList = {ids['config_list_proj']}; compatibilityVersion = \"Xcode 14.0\"; "
       f"developmentRegion = ja; hasScannedForEncodings = 0; knownRegions = (ja, en, Base, ); mainGroup = {ids['group_root']}; "
       f"productRefGroup = {ids['product']} /* Products */; projectDirPath = \"\"; projectRoot = \"\"; "
+      f"packageReferences = ({ids['pkg_ref']} /* XCRemoteSwiftPackageReference \"firebase-ios-sdk\" */, ); "
       f"targets = ({ids['target']} /* {APP} */, {ids['w_target']} /* {WIDGET} */, ); }};")
     w("/* End PBXProject section */")
 
@@ -249,7 +254,7 @@ def main() -> None:
     # ---- build settings
     w("\n/* Begin XCBuildConfiguration section */")
     for key, name, debug in [("debug_proj", "Debug", True), ("release_proj", "Release", False)]:
-        opt = "SWIFT_OPTIMIZATION_LEVEL = \"-Onone\"; " if debug else ""
+        opt = ("SWIFT_OPTIMIZATION_LEVEL = \"-Onone\"; SWIFT_ACTIVE_COMPILATION_CONDITIONS = \"DEBUG\"; ") if debug else ""
         w(f"\t\t{ids[key]} /* {name} */ = {{isa = XCBuildConfiguration; buildSettings = {{ "
           f"ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; SWIFT_VERSION = 5.0; {opt}}}; name = {name}; }};")
 
@@ -285,6 +290,14 @@ def main() -> None:
     for key, name in [("w_debug", "Debug"), ("w_release", "Release")]:
         w(f"\t\t{ids[key]} /* {name} */ = {{isa = XCBuildConfiguration; buildSettings = {{ {widget_settings}}}; name = {name}; }};")
     w("/* End XCBuildConfiguration section */")
+
+    w("\n/* Begin XCRemoteSwiftPackageReference section */")
+    w(f"\t\t{ids['pkg_ref']} /* XCRemoteSwiftPackageReference \"firebase-ios-sdk\" */ = {{isa = XCRemoteSwiftPackageReference; "
+      f"repositoryURL = \"{FIREBASE_URL}\"; requirement = {{kind = upToNextMajorVersion; minimumVersion = 11.0.0; }}; }};")
+    w("/* End XCRemoteSwiftPackageReference section */")
+    w("\n/* Begin XCSwiftPackageProductDependency section */")
+    w(f"\t\t{ids['pkg_prod']} /* FirebaseAuth */ = {{isa = XCSwiftPackageProductDependency; package = {ids['pkg_ref']} /* XCRemoteSwiftPackageReference \"firebase-ios-sdk\" */; productName = FirebaseAuth; }};")
+    w("/* End XCSwiftPackageProductDependency section */")
 
     w("\n/* Begin XCConfigurationList section */")
     w(f"\t\t{ids['config_list_proj']} /* Build configuration list for PBXProject */ = {{isa = XCConfigurationList; "

@@ -63,9 +63,9 @@ struct CalendarView: View {
                     PhotoViewer(startID: viewerID ?? "")
                         .environmentObject(store)
                 }
-                .sheet(item: $commentTarget) { target in
+                .fullScreenCover(item: $commentTarget) { target in
                     CommentSheet(postID: target.id, owner: target.owner, caption: target.caption,
-                                 image: target.image, prompt: target.prompt, cloudID: target.cloudID, ownRecordID: target.ownRecordID)
+                                 image: target.image, front: target.front, prompt: target.prompt, cloudID: target.cloudID, ownRecordID: target.ownRecordID)
                         .environmentObject(store)
                 }
             header
@@ -245,5 +245,138 @@ struct CalendarView: View {
             month = next
             selectedKey = nil
         }
+    }
+}
+
+
+/// 友達のカレンダー：投稿のある日を光らせ、押すと、その日の写真を見られる（いま友達の人だけ）
+struct FriendCalendarSheet: View {
+    let uid: String
+    let name: String
+    @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var cloud = CloudSync.shared
+    @EnvironmentObject private var store: PostStore
+    @State private var metas: [FriendPostMeta] = []
+    @State private var loading = true
+    @State private var month = Date()
+    @State private var selectedKey: String? = nil
+    @State private var posts: [CloudPost] = []
+    @State private var commentTarget: CommentTarget? = nil
+
+    private var calendar: Calendar { Calendar(identifier: .gregorian) }
+
+    private var monthTitle: String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "ja_JP")
+        f.dateFormat = L("yyyy年M月")
+        return f.string(from: month)
+    }
+
+    private var days: [Date?] {
+        guard let range = calendar.range(of: .day, in: .month, for: month),
+              let first = calendar.date(from: calendar.dateComponents([.year, .month], from: month)) else { return [] }
+        var result: [Date?] = Array(repeating: nil, count: calendar.component(.weekday, from: first) - 1)
+        for day in range { result.append(calendar.date(byAdding: .day, value: day - 1, to: first)) }
+        return result
+    }
+
+    var body: some View { bodyContent.edgeSwipeBack() }
+
+    private var bodyContent: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack {
+                        Button { shift(-1) } label: { Image(systemName: "chevron.left") }
+                        Spacer()
+                        Text(monthTitle).font(.title3.bold())
+                        Spacer()
+                        Button { shift(1) } label: { Image(systemName: "chevron.right") }
+                    }
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 8) {
+                        ForEach([L("日"), L("月"), L("火"), L("水"), L("木"), L("金"), L("土")], id: \.self) { w in
+                            Text(w).font(.caption).foregroundStyle(.secondary)
+                        }
+                        ForEach(Array(days.enumerated()), id: \.offset) { _, date in cell(date) }
+                    }
+                    if loading {
+                        ProgressView().frame(maxWidth: .infinity).padding(.top, 20)
+                    } else if metas.isEmpty {
+                        Text(L("見られる投稿は、まだありません")).foregroundStyle(Hi.dim).padding(.top, 10)
+                    } else if selectedKey == nil {
+                        Text(L("投稿がある日を押すと、写真が見られます")).font(.caption).foregroundStyle(Hi.dim)
+                    }
+                    ForEach(posts) { post in
+                        CloudPostCard(post: post, asFriend: true) { commentTarget = $0 }
+                            .riseIn()
+                    }
+                }
+                .padding(16)
+            }
+            .background(Color.black.ignoresSafeArea())
+            .navigationTitle(LF("{n}のカレンダー", ["n": name]))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .topBarLeading) { Button { dismiss() } label: { Image(systemName: "chevron.left").font(.system(size: 16, weight: .bold)) }.accessibilityLabel(L("戻る")) } }
+            .fullScreenCover(item: $commentTarget) { target in
+                CommentSheet(postID: target.id, owner: target.owner, caption: target.caption, image: target.image, front: target.front,
+                             prompt: target.prompt, cloudID: target.cloudID, ownRecordID: target.ownRecordID)
+                    .environmentObject(store)
+            }
+        }
+        .presentationBackground(.black)
+        .preferredColorScheme(.dark)
+        .task {
+            metas = await cloud.friendPostIndex(uid)
+            loading = false
+            if let latest = metas.first, let date = Self.date(latest.dayKey) { month = date }
+        }
+        .task(id: selectedKey) {
+            guard let key = selectedKey else { posts = []; return }
+            var loaded: [CloudPost] = []
+            for meta in metas where meta.dayKey == key {
+                if let post = await cloud.friendPost(meta.id) { loaded.append(post) }
+            }
+            posts = loaded.sorted { $0.postedAt < $1.postedAt }
+        }
+    }
+
+    private static func date(_ key: String) -> Date? {
+        let f = DateFormatter()
+        f.calendar = Calendar(identifier: .gregorian)
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd"
+        return f.date(from: key)
+    }
+
+    @ViewBuilder
+    private func cell(_ date: Date?) -> some View {
+        if let date {
+            let key = PostStore.dayKey(for: date)
+            let meta = metas.first { $0.dayKey == key }
+            Button {
+                guard meta != nil else { return }
+                UISelectionFeedbackGenerator().selectionChanged()
+                selectedKey = key
+            } label: {
+                Text("\(calendar.component(.day, from: date))")
+                    .font(.callout.weight(meta != nil ? .black : .regular))
+                    .foregroundStyle(meta != nil ? Color.black.opacity(0.85) : Hi.dim)
+                    .frame(maxWidth: .infinity, minHeight: 46)
+                    .background {
+                        if let meta { GlowBackground(palette: .forPrompt(meta.prompt), focus: .center) } else { Hi.tile }
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .overlay {
+                        if selectedKey == key { RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Hi.neon, lineWidth: 2) }
+                    }
+            }
+            .buttonStyle(.plain)
+        } else {
+            Text("")
+        }
+    }
+
+    private func shift(_ delta: Int) {
+        if let next = calendar.date(byAdding: .month, value: delta, to: month) { month = next; selectedKey = nil }
     }
 }

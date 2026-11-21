@@ -6,9 +6,10 @@ import MapKit
 /// ・地球の写真は、Apple の地図の衛星写真から作り、端末に保存して使い回す
 /// ・つまんで近づくと onZoomIn を呼ぶ（そこからは平らな地図に切り替える）
 struct GlobeView: UIViewRepresentable {
-    let samples: [WorldSample]
+    let samples: [WorldPin]
     let base: Date
     let you: CLLocationCoordinate2D?
+    var myPhoto: UIImage? = nil
     let center: CLLocationCoordinate2D
     let onSelect: (String) -> Void
     let onZoomIn: (CLLocationCoordinate2D) -> Void
@@ -25,13 +26,17 @@ struct GlobeView: UIViewRepresentable {
         context.coordinator.attach(to: view)
         context.coordinator.face(center, animated: false)
         context.coordinator.setPins(samples: samples, base: base)
-        context.coordinator.setYou(you)
+        context.coordinator.setYou(you, photo: myPhoto)
         return view
     }
 
     func updateUIView(_ view: SCNView, context: Context) {
         context.coordinator.parent = self
-        context.coordinator.setYou(you)
+        context.coordinator.setYou(you, photo: myPhoto)
+        // 投稿が届いたり変わったりしたら、ピンを立て直す
+        if context.coordinator.pinIDs != samples.map(\.id) {
+            context.coordinator.setPins(samples: samples, base: base)
+        }
         // 中心が変わったとき（自分の位置がわかったときなど）だけ、そこへ回す
         if let last = context.coordinator.lastCenter,
            abs(last.latitude - center.latitude) + abs(last.longitude - center.longitude) > 0.5 {
@@ -48,6 +53,8 @@ struct GlobeView: UIViewRepresentable {
         private let earth = SCNNode()
         private let pins = SCNNode()
         private var youNode: SCNNode?
+        private let sunNode = SCNNode()   // 地球に固定した、本物の太陽の向きの光
+        private var sunTimer: Timer?
         private var spinAngle: Float = 0
         private var tiltAngle: Float = 0
         private var cameraZ: Float = 3.1
@@ -72,17 +79,14 @@ struct GlobeView: UIViewRepresentable {
             cameraNode.position = SCNVector3(0, 0, cameraZ)
             scene.rootNode.addChildNode(cameraNode)
 
-            // 光：正面から少し左上（昼の側が明るく見える）
-            let sun = SCNNode()
-            sun.light = SCNLight()
-            sun.light?.type = .directional
-            sun.light?.intensity = 900
-            sun.eulerAngles = SCNVector3(-0.35, -0.45, 0)
-            scene.rootNode.addChildNode(sun)
+            // 光：本物の太陽の向き（昼の側が明るく、夜の側が暗い）。地球と一緒に回るので、地球の上で位置が動かない
+            sunNode.light = SCNLight()
+            sunNode.light?.type = .directional
+            sunNode.light?.intensity = 1150
             let ambient = SCNNode()
             ambient.light = SCNLight()
             ambient.light?.type = .ambient
-            ambient.light?.intensity = 420
+            ambient.light?.intensity = 230
             scene.rootNode.addChildNode(ambient)
 
             let sphere = SCNSphere(radius: 1)
@@ -108,6 +112,9 @@ struct GlobeView: UIViewRepresentable {
             scene.rootNode.addChildNode(tilt)
             tilt.addChildNode(spin)
             spin.addChildNode(earth)
+            spin.addChildNode(sunNode)
+            updateSun()
+            sunTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in self?.updateSun() }
             spin.addChildNode(pins)
             scene.rootNode.addChildNode(airNode)
 
@@ -116,6 +123,15 @@ struct GlobeView: UIViewRepresentable {
                 self?.earth.geometry?.firstMaterial?.diffuse.contents = image
             }
         }
+
+        /// いまの太陽の向きに、光を合わせる
+        func updateSun() {
+            let sub = Sun.subsolar(Date())
+            sunNode.position = Coordinator.point(sub, radius: 6)
+            sunNode.look(at: SCNVector3Zero, up: SCNVector3(0, 1, 0), localFront: SCNVector3(0, 0, -1))
+        }
+
+        deinit { sunTimer?.invalidate() }
 
         func attach(to view: SCNView) {
             let pan = UIPanGestureRecognizer(target: self, action: #selector(onPan(_:)))
@@ -167,11 +183,14 @@ struct GlobeView: UIViewRepresentable {
 
         // MARK: ピン
 
-        func setPins(samples: [WorldSample], base: Date) {
-            pins.childNodes.forEach { $0.removeFromParentNode() }
+        var pinIDs: [String] = []
+
+        func setPins(samples: [WorldPin], base: Date) {
+            pinIDs = samples.map(\.id)
+            pins.childNodes.filter { $0.name != "you" }.forEach { $0.removeFromParentNode() }
             for sample in samples {
                 let light = sample.light(base: base)
-                let image = PinImage.make(flag: sample.flag, top: UIColor(light.palette.top), bottom: UIColor(light.palette.bottom))
+                let image = PinImage.photo(sample.photo, top: UIColor(light.palette.top), bottom: UIColor(light.palette.bottom))
                 let node = billboard(image: image, size: 0.12)
                 node.name = sample.id
                 node.position = Coordinator.point(sample.coordinate, radius: 1.02)
@@ -179,13 +198,18 @@ struct GlobeView: UIViewRepresentable {
             }
         }
 
-        func setYou(_ c: CLLocationCoordinate2D?) {
+        private var youPhoto: UIImage?
+
+        func setYou(_ c: CLLocationCoordinate2D?, photo: UIImage?) {
             let coordinate = c ?? WorldMapView.home
-            if youNode == nil {
-                let node = billboard(image: PinImage.you(label: L("あなた")), size: 0.16)
+            if youNode == nil || youPhoto !== photo {
+                youNode?.removeFromParentNode()
+                // 写真があるときは、ピンの上に小さく丸く出す
+                let node = billboard(image: PinImage.you(label: L("あなた"), photo: photo), size: photo == nil ? 0.16 : 0.2)
                 node.name = "you"
                 pins.addChildNode(node)
                 youNode = node
+                youPhoto = photo
             }
             youNode?.position = Coordinator.point(coordinate, radius: 1.025)
         }
@@ -273,8 +297,62 @@ enum PinImage {
         }
     }
 
+    /// 本物の投稿の写真を、丸く切り抜いたピン（写真がまだなければ、その土地の光の色）
+    static func photo(_ photo: UIImage?, top: UIColor, bottom: UIColor) -> UIImage {
+        let size = CGSize(width: 96, height: 96)
+        return UIGraphicsImageRenderer(size: size).image { ctx in
+            let rect = CGRect(origin: .zero, size: size).insetBy(dx: 4, dy: 4)
+            let path = UIBezierPath(ovalIn: rect)
+            ctx.cgContext.saveGState()
+            path.addClip()
+            if let photo {
+                let side = min(photo.size.width, photo.size.height)
+                let scale = rect.width / side
+                let w = photo.size.width * scale, h = photo.size.height * scale
+                photo.draw(in: CGRect(x: rect.midX - w / 2, y: rect.midY - h / 2, width: w, height: h))
+            } else {
+                let colors = [top.cgColor, bottom.cgColor] as CFArray
+                if let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: [0, 1]) {
+                    ctx.cgContext.drawLinearGradient(gradient, start: .zero, end: CGPoint(x: 96, y: 96), options: [])
+                }
+            }
+            ctx.cgContext.restoreGState()
+            UIColor.white.setStroke()
+            path.lineWidth = 5
+            path.stroke()
+        }
+    }
+
     /// 自分の場所（黄緑の点と「あなた」）
-    static func you(label: String) -> UIImage {
+    static func you(label: String, photo: UIImage? = nil) -> UIImage {
+        guard let photo else { return youPlain(label: label) }
+        // 点が画像の真ん中に来るようにして、その上に写真を丸く置く
+        let size = CGSize(width: 160, height: 240)
+        return UIGraphicsImageRenderer(size: size).image { ctx in
+            let neon = UIColor(red: 0.894, green: 1.0, blue: 0.102, alpha: 1)
+            let rect = CGRect(x: 32, y: 4, width: 96, height: 96)
+            let circle = UIBezierPath(ovalIn: rect)
+            ctx.cgContext.saveGState()
+            circle.addClip()
+            let side = min(photo.size.width, photo.size.height)
+            let k = rect.width / side
+            let w = photo.size.width * k, h = photo.size.height * k
+            photo.draw(in: CGRect(x: rect.midX - w / 2, y: rect.midY - h / 2, width: w, height: h))
+            ctx.cgContext.restoreGState()
+            neon.setStroke(); circle.lineWidth = 6; circle.stroke()
+            let d = UIBezierPath(ovalIn: CGRect(x: 56, y: 96, width: 48, height: 48))
+            neon.setFill(); d.fill()
+            UIColor.black.setStroke(); d.lineWidth = 6; d.stroke()
+            let text = NSAttributedString(string: label, attributes: [
+                .font: UIFont.systemFont(ofSize: 34, weight: .black), .foregroundColor: neon,
+                .strokeColor: UIColor.black, .strokeWidth: -3,
+            ])
+            let t = text.size()
+            text.draw(at: CGPoint(x: (size.width - t.width) / 2, y: 152))
+        }
+    }
+
+    private static func youPlain(label: String) -> UIImage {
         let size = CGSize(width: 160, height: 120)
         return UIGraphicsImageRenderer(size: size).image { _ in
             let neon = UIColor(red: 0.894, green: 1.0, blue: 0.102, alpha: 1)

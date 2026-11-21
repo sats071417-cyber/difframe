@@ -60,9 +60,8 @@ private struct City {
 
     func time(at date: Date) -> String {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = TimeZone(identifier: zone) ?? .gmt
-        formatter.dateFormat = "HH:mm"
+        formatter.setLocalizedDateFormatFromTemplate("jm")   // iPhone の12/24時間の設定に合わせる
         return formatter.string(from: date)
     }
 }
@@ -424,7 +423,7 @@ struct WorldWidgetView: View {
         let hour = Calendar.current.component(.hour, from: entry.date)
         let light = Light(hour: hour)
         return tileBody(light: light, flag: "📍", name: W.t("あなた", lang),
-                        time: entry.date.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits)),
+                        time: entry.date.formatted(.dateTime.hour().minute()),
                         greeting: nil, highlight: true)
     }
 
@@ -664,9 +663,9 @@ struct HitokomaWidgets: WidgetBundle {
 
 enum W {
     static func code(_ lang: String?) -> String {
-        if let lang, ["en", "ja", "zh", "ko", "es"].contains(lang) { return lang }
+        if let lang, ["en", "ja", "zh", "ko", "es", "fr"].contains(lang) { return lang }
         for c in Locale.preferredLanguages.map({ $0.lowercased() }) {
-            for l in ["ja", "zh", "ko", "es", "en"] where c.hasPrefix(l) { return l }
+            for l in ["ja", "zh", "ko", "es", "fr", "en"] where c.hasPrefix(l) { return l }
         }
         return "en"
     }
@@ -687,45 +686,47 @@ enum W {
     ]
 
     private static let table: [String: [String: String]] = [
-        "今日のお題": ["en": "Today's prompt", "zh": "今日题目", "ko": "오늘의 주제", "es": "Tema de hoy"],
-        "日連続": ["en": "day streak", "zh": "天连续", "ko": "일 연속", "es": "días seguidos"],
-        "撮る": ["en": "Shoot", "zh": "拍摄", "ko": "찍기", "es": "Fotografiar"],
-        "アプリを開くと、ここに今日のお題が出ます": ["en": "Open the app to see today's prompt here", "zh": "打开应用即可在此看到今日题目", "ko": "앱을 열면 오늘의 주제가 여기에 나와요", "es": "Abre la app para ver aquí el tema de hoy"],
-        "通知は {n} ごろ": ["en": "Arrives around {n}", "zh": "约 {n} 送达", "ko": "{n}쯤 도착", "es": "Llega sobre las {n}"],
-        "通知でお題が届きます": ["en": "The prompt arrives by notification", "zh": "题目会通过通知送达", "ko": "주제는 알림으로 도착해요", "es": "El tema llega por notificación"],
-        "届いてから": ["en": "since it arrived", "zh": "送达后", "ko": "도착 후", "es": "desde que llegó"],
-        "今日のお題まで": ["en": "Next prompt in", "zh": "距今日题目还有", "ko": "오늘의 주제까지", "es": "Próximo tema en"],
-        "通知と同時にここに出ます": ["en": "Appears here the moment it's sent", "zh": "送达的同时出现在这里", "ko": "도착하는 순간 여기에 나와요", "es": "Aparece aquí en cuanto llega"],
-        "投稿済み {n}": ["en": "Posted {n}", "zh": "已发布 {n}", "ko": "게시함 {n}", "es": "Publicado {n}"],
-        "あなた": ["en": "You", "zh": "你", "ko": "나", "es": "Tú"],
-        "今日のお題と、届いてからの時間、連続日数を表示します。": ["en": "Shows today's prompt, time since it arrived, and your streak.", "zh": "显示今日题目、送达后的时间和连续天数。", "ko": "오늘의 주제, 도착 후 시간, 연속 일수를 보여줘요.", "es": "Muestra el tema de hoy, el tiempo desde que llegó y tu racha."],
-        "あなたと世界の都市の、いまの時刻と空の色を表示します。タップで世界の地図へ。": ["en": "Shows the time and sky color for you and cities around the world. Tap to open the world map.", "zh": "显示你和世界各城市此刻的时间与天空颜色。点按打开世界地图。", "ko": "나와 세계 도시의 지금 시각과 하늘 색을 보여줘요. 탭하면 세계 지도로 이동해요.", "es": "Muestra la hora y el color del cielo para ti y ciudades del mundo. Toca para abrir el mapa."],
-        "連続 {n} 日": ["en": "{n}-day streak", "zh": "连续 {n} 天", "ko": "{n}일 연속", "es": "Racha de {n} días"],
-        "連続": ["en": "Streak", "zh": "连续", "ko": "연속", "es": "Racha"],
-        "今日 {n}": ["en": "Today {n}", "zh": "今天 {n}", "ko": "오늘 {n}", "es": "Hoy {n}"],
-        "アプリを開くと更新されます": ["en": "Open the app to update", "zh": "打开应用即可更新", "ko": "앱을 열면 업데이트돼요", "es": "Abre la app para actualizar"],
-        "アプリを開くと更新": ["en": "Open app to update", "zh": "打开应用更新", "ko": "앱을 열어 업데이트", "es": "Abre la app"],
-        "連続日数": ["en": "Streak", "zh": "连续天数", "ko": "연속 일수", "es": "Racha"],
+        "今日のお題": ["en": "Today's prompt", "zh": "今日题目", "ko": "오늘의 주제", "es": "Tema de hoy", "fr": "Thème du jour"],
+        "日連続": ["en": "day streak", "zh": "天连续", "ko": "일 연속", "es": "días seguidos", "fr": "jours d'affilée"],
+        "撮る": ["en": "Shoot", "zh": "拍摄", "ko": "찍기", "es": "Fotografiar", "fr": "Photographier"],
+        "アプリを開くと、ここに今日のお題が出ます": ["en": "Open the app to see today's prompt here", "zh": "打开应用即可在此看到今日题目", "ko": "앱을 열면 오늘의 주제가 여기에 나와요", "es": "Abre la app para ver aquí el tema de hoy", "fr": "Ouvre l'app pour voir ici le thème du jour"],
+        "通知は {n} ごろ": ["en": "Arrives around {n}", "zh": "约 {n} 送达", "ko": "{n}쯤 도착", "es": "Llega sobre las {n}", "fr": "Notification vers {n}"],
+        "通知でお題が届きます": ["en": "The prompt arrives by notification", "zh": "题目会通过通知送达", "ko": "주제는 알림으로 도착해요", "es": "El tema llega por notificación", "fr": "Le thème arrive par notification"],
+        "届いてから": ["en": "since it arrived", "zh": "送达后", "ko": "도착 후", "es": "desde que llegó", "fr": "depuis son arrivée"],
+        "今日のお題まで": ["en": "Next prompt in", "zh": "距今日题目还有", "ko": "오늘의 주제까지", "es": "Próximo tema en", "fr": "Prochain thème dans"],
+        "通知と同時にここに出ます": ["en": "Appears here the moment it's sent", "zh": "送达的同时出现在这里", "ko": "도착하는 순간 여기에 나와요", "es": "Aparece aquí en cuanto llega", "fr": "Apparaît ici dès l'envoi"],
+        "投稿済み {n}": ["en": "Posted {n}", "zh": "已发布 {n}", "ko": "게시함 {n}", "es": "Publicado {n}", "fr": "Publié {n}"],
+        "あなた": ["en": "You", "zh": "你", "ko": "나", "es": "Tú", "fr": "Toi"],
+        "今日のお題と、届いてからの時間、連続日数を表示します。": ["en": "Shows today's prompt, time since it arrived, and your streak.", "zh": "显示今日题目、送达后的时间和连续天数。", "ko": "오늘의 주제, 도착 후 시간, 연속 일수를 보여줘요.", "es": "Muestra el tema de hoy, el tiempo desde que llegó y tu racha.", "fr": "Affiche le thème du jour, le temps écoulé depuis son arrivée et ta série."],
+        "あなたと世界の都市の、いまの時刻と空の色を表示します。タップで世界の地図へ。": ["en": "Shows the time and sky color for you and cities around the world. Tap to open the world map.", "zh": "显示你和世界各城市此刻的时间与天空颜色。点按打开世界地图。", "ko": "나와 세계 도시의 지금 시각과 하늘 색을 보여줘요. 탭하면 세계 지도로 이동해요.", "es": "Muestra la hora y el color del cielo para ti y ciudades del mundo. Toca para abrir el mapa.", "fr": "Affiche l'heure et la couleur du ciel pour toi et des villes du monde. Touche pour ouvrir la carte du monde."],
+        "連続 {n} 日": ["en": "{n}-day streak", "zh": "连续 {n} 天", "ko": "{n}일 연속", "es": "Racha de {n} días", "fr": "Série de {n} jours"],
+        "連続": ["en": "Streak", "zh": "连续", "ko": "연속", "es": "Racha", "fr": "Série"],
+        "今日 {n}": ["en": "Today {n}", "zh": "今天 {n}", "ko": "오늘 {n}", "es": "Hoy {n}", "fr": "Aujourd'hui {n}"],
+        "アプリを開くと更新されます": ["en": "Open the app to update", "zh": "打开应用即可更新", "ko": "앱을 열면 업데이트돼요", "es": "Abre la app para actualizar", "fr": "Ouvre l'app pour actualiser"],
+        "アプリを開くと更新": ["en": "Open app to update", "zh": "打开应用更新", "ko": "앱을 열어 업데이트", "es": "Abre la app", "fr": "Ouvre l'app"],
+        "連続日数": ["en": "Streak", "zh": "连续天数", "ko": "연속 일수", "es": "Racha", "fr": "Série"],
         "Difframe の連続投稿日数と、今日の投稿数を表示します。": [
             "en": "Shows your Difframe posting streak and today's posts.",
             "zh": "显示你在 Difframe 的连续发布天数和今天的发布数。",
             "ko": "Difframe 연속 게시 일수와 오늘 게시 수를 보여줘요.",
-            "es": "Muestra tu racha en Difframe y tus publicaciones de hoy."],
-        "世界のいま": ["en": "World now", "zh": "此刻的世界", "ko": "지금 세계", "es": "El mundo ahora"],
-        "サンプル": ["en": "Sample", "zh": "示例", "ko": "샘플", "es": "Ejemplo"],
+            "es": "Muestra tu racha en Difframe y tus publicaciones de hoy.",
+            "fr": "Affiche ta série de publications Difframe et tes publications du jour."],
+        "世界のいま": ["en": "World now", "zh": "此刻的世界", "ko": "지금 세계", "es": "El mundo ahora", "fr": "Le monde maintenant"],
+        "サンプル": ["en": "Sample", "zh": "示例", "ko": "샘플", "es": "Ejemplo", "fr": "Exemple"],
         "世界の都市の、現地の時刻とあいさつを表示します。タップで世界のタイムラインへ。": [
             "en": "Shows local time and greetings in cities around the world. Tap to open the world timeline.",
             "zh": "显示世界各城市的当地时间和问候语。点按打开世界时间线。",
             "ko": "세계 도시의 현지 시각과 인사말을 보여줘요. 탭하면 세계 타임라인으로 이동해요.",
-            "es": "Muestra la hora local y saludos de ciudades del mundo. Toca para abrir la línea de tiempo mundial."],
-        "傘": ["en": "Umbrella", "zh": "伞", "ko": "우산", "es": "Paraguas"],
-        "Tokyo": ["zh": "东京", "ko": "도쿄", "es": "Tokio"],
-        "New York": ["zh": "纽约", "ko": "뉴욕", "es": "Nueva York"],
-        "Paris": ["zh": "巴黎", "ko": "파리", "es": "París"],
-        "Sydney": ["zh": "悉尼", "ko": "시드니", "es": "Sídney"],
-        "Mexico City": ["zh": "墨西哥城", "ko": "멕시코시티", "es": "Ciudad de México"],
-        "Cairo": ["zh": "开罗", "ko": "카이로", "es": "El Cairo"],
-        "São Paulo": ["zh": "圣保罗", "ko": "상파울루", "es": "São Paulo"],
-        "Mumbai": ["zh": "孟买", "ko": "뭄바이", "es": "Bombay"],
+            "es": "Muestra la hora local y saludos de ciudades del mundo. Toca para abrir la línea de tiempo mundial.",
+            "fr": "Affiche l'heure locale et les salutations de villes du monde. Touche pour ouvrir la chronologie mondiale."],
+        "傘": ["en": "Umbrella", "zh": "伞", "ko": "우산", "es": "Paraguas", "fr": "Parapluie"],
+        "Tokyo": ["zh": "东京", "ko": "도쿄", "es": "Tokio", "fr": "Tokyo"],
+        "New York": ["zh": "纽约", "ko": "뉴욕", "es": "Nueva York", "fr": "New York"],
+        "Paris": ["zh": "巴黎", "ko": "파리", "es": "París", "fr": "Paris"],
+        "Sydney": ["zh": "悉尼", "ko": "시드니", "es": "Sídney", "fr": "Sydney"],
+        "Mexico City": ["zh": "墨西哥城", "ko": "멕시코시티", "es": "Ciudad de México", "fr": "Mexico"],
+        "Cairo": ["zh": "开罗", "ko": "카이로", "es": "El Cairo", "fr": "Le Caire"],
+        "São Paulo": ["zh": "圣保罗", "ko": "상파울루", "es": "São Paulo", "fr": "São Paulo"],
+        "Mumbai": ["zh": "孟买", "ko": "뭄바이", "es": "Bombay", "fr": "Mumbai"],
     ]
 }

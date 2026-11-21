@@ -5,6 +5,7 @@ struct CloudPostCard: View {
     let post: CloudPost
     @State private var profileCode: CodeTarget? = nil
     @State private var shareOpen = false
+    @State private var mapOpen = false
     /// 友達として見ているか（友達からのコメントは、いつでも受け付ける）
     var asFriend = false
     let onComment: (CommentTarget) -> Void
@@ -13,25 +14,36 @@ struct CloudPostCard: View {
 
     private var target: CommentTarget {
         CommentTarget(id: post.id, owner: post.name.isEmpty ? "@" + post.handle : post.name,
-                      caption: post.caption, image: post.photo, cloudID: post.id)
+                      caption: post.caption, image: post.photo, front: post.front, cloudID: post.id)
+    }
+
+    private func openProfile() {
+        if !post.code.isEmpty { profileCode = CodeTarget(id: post.code) }
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
+                // アイコンと名前を押すと、その人のプロフィール
                 Circle()
                     .fill(Color.white.opacity(0.15))
                     .frame(width: 40, height: 40)
                     .overlay(Text(String((post.name.isEmpty ? post.handle : post.name).prefix(1)))
                         .font(.system(.subheadline, design: .rounded).bold())
                         .foregroundStyle(.white))
+                    .onTapGesture(perform: openProfile)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(post.name.isEmpty ? "@" + post.handle : post.name)
                         .font(.subheadline.weight(.black)).lineLimit(1)
+                        .onTapGesture(perform: openProfile)
                     HStack(spacing: 4) {
                         Text("@\(post.handle) ・ " + LF("現地 {t}", ["t": post.localTime]))
-                        if let city = post.city {
-                            Label(city, systemImage: "mappin").labelStyle(.titleAndIcon)
+                        // 場所を押すと、大まかな地図が開く
+                        if let city = post.city, !city.isEmpty {
+                            Button { mapOpen = true } label: {
+                                Label(city, systemImage: "mappin").labelStyle(.titleAndIcon).foregroundStyle(Hi.neon)
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                     .font(.caption).foregroundStyle(Hi.dim).lineLimit(1)
@@ -41,8 +53,6 @@ struct CloudPostCard: View {
                     DotText(text: TimeFormat.string(elapsed), pitch: 3, color: Hi.neon)
                 }
             }
-            .contentShape(Rectangle())
-            .onTapGesture { if !post.code.isEmpty { profileCode = CodeTarget(id: post.code) } }
 
             Group {
                 if let photo = post.photo {
@@ -52,6 +62,8 @@ struct CloudPostCard: View {
                 }
             }
             .aspectRatio(PhotoShape.ratio, contentMode: .fit)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(post.alt ?? L(post.prompt))
             .overlay(alignment: .bottomLeading) {
                 Text(L(post.prompt)).font(.title3.weight(.black)).foregroundStyle(.white)
                     .shadow(color: .black.opacity(0.5), radius: 4).padding(16)
@@ -67,11 +79,15 @@ struct CloudPostCard: View {
 
             if let caption = post.caption, !caption.isEmpty {
                 Text(caption).font(.subheadline)
+                TranslateLine(text: caption)
             }
             CommentLine(postID: post.id, allowComments: commentsOn, cloudID: post.id) { onComment(target) }
         }
-        .sheet(item: $profileCode) { PersonProfileSheet(code: $0.id) }
-        .sheet(isPresented: $shareOpen) { ShareToDMSheet(post: post) }
+        .fullScreenCover(item: $profileCode) { PersonProfileSheet(code: $0.id) }
+        .fullScreenCover(isPresented: $mapOpen) {
+            LocationMapSheet(city: post.city ?? "", latitude: post.latitude, longitude: post.longitude, photo: post.photo)
+        }
+        .fullScreenCover(isPresented: $shareOpen) { ShareToDMSheet(post: post) }
     }
 }
 

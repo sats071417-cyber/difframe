@@ -457,6 +457,15 @@ final class PostStore: ObservableObject {
         }
     }
 
+    /// すべての記録と写真を消す（アカウントの削除のとき）
+    func wipeAll() {
+        records = []; reactions = [:]; comments = [:]
+        for url in [fileURL, reactionURL, commentURL] { try? FileManager.default.removeItem(at: url) }
+        try? FileManager.default.removeItem(at: photoDir)
+        try? FileManager.default.createDirectory(at: photoDir, withIntermediateDirectories: true)
+        WidgetBridge.push(self)
+    }
+
     private func load() {
         if let data = try? Data(contentsOf: fileURL),
            let decoded = try? JSONDecoder().decode([PromptRecord].self, from: data) {

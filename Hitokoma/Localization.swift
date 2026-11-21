@@ -2,7 +2,7 @@ import Foundation
 
 /// アプリの表示言語。標準は英語。日本語などは、プロフィールの設定で選んだときだけ。
 enum AppLanguage: String, CaseIterable, Identifiable {
-    case en, ja, zh, ko, es
+    case en, ja, zh, ko, es, fr
 
     var id: String { rawValue }
 
@@ -14,6 +14,7 @@ enum AppLanguage: String, CaseIterable, Identifiable {
         case .zh: return "中文（简体）"
         case .ko: return "한국어"
         case .es: return "Español"
+        case .fr: return "Français"
         }
     }
 
@@ -36,6 +37,7 @@ enum AppLanguage: String, CaseIterable, Identifiable {
             if c.hasPrefix("zh") { return .zh }      // 繁体字も、いまは簡体字で出す
             if c.hasPrefix("ko") { return .ko }
             if c.hasPrefix("es") { return .es }
+            if c.hasPrefix("fr") { return .fr }
             if c.hasPrefix("en") { return .en }
         }
         return .en
@@ -51,6 +53,7 @@ enum L10n {
         case .zh: return zh[key] ?? en[key] ?? key
         case .ko: return ko[key] ?? en[key] ?? key
         case .es: return es[key] ?? en[key] ?? key
+        case .fr: return fr[key] ?? en[key] ?? key
         }
     }
 
@@ -70,9 +73,30 @@ func LF(_ key: String, _ args: [String: String]) -> String {
     return s
 }
 
+/// 時刻の書き方：12時間か24時間かは、iPhone の設定に合わせる（言語はアプリの言語）
+enum Clock {
+    /// iPhone が24時間表示か（設定 → 一般 → 日付と時刻）
+    static var uses24h: Bool {
+        let f = DateFormatter.dateFormat(fromTemplate: "j", options: 0, locale: Locale.current) ?? ""
+        return !f.contains("a")
+    }
+
+    static func string(_ date: Date, zone: TimeZone? = nil) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: AppLanguage.current.rawValue)
+        if let zone { f.timeZone = zone }
+        f.setLocalizedDateFormatFromTemplate(uses24h ? "Hm" : "hm")
+        return f.string(from: date)
+    }
+}
+
 extension Date {
-    /// 日付・時刻の書き方を、端末の言語ではなく、アプリの言語で作る
+    /// 日付・時刻の書き方を、端末の言語ではなく、アプリの言語で作る（時刻の12/24時間は、iPhone の設定）
     func appFormatted(date: Date.FormatStyle.DateStyle, time: Date.FormatStyle.TimeStyle) -> String {
-        formatted(Date.FormatStyle(date: date, time: time).locale(Locale(identifier: AppLanguage.current.rawValue)))
+        let locale = Locale(identifier: AppLanguage.current.rawValue)
+        if time == .omitted { return formatted(Date.FormatStyle(date: date, time: .omitted).locale(locale)) }
+        let clock = Clock.string(self)
+        if date == .omitted { return clock }
+        return formatted(Date.FormatStyle(date: date, time: .omitted).locale(locale)) + " " + clock
     }
 }

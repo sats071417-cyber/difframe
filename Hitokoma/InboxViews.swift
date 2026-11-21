@@ -15,8 +15,8 @@ struct NotificationBell: View {
                 badgeButton(symbol: "bell.fill", count: cloud.unreadCount, label: L("通知")) { show = true }
                 badgeButton(symbol: "paperplane", count: cloud.unreadMessages, label: L("DM")) { showDM = true }
             }
-            .sheet(isPresented: $show) { InboxSheet() }
-            .sheet(isPresented: $showDM) { DMListSheet() }
+            .fullScreenCover(isPresented: $show) { InboxSheet() }
+            .fullScreenCover(isPresented: $showDM) { DMListSheet() }
         }
     }
 
@@ -51,30 +51,33 @@ struct NotificationBell: View {
 private struct SheetHeader<Trailing: View>: View {
     let title: String
     let onClose: () -> Void
+    var collapse: CGFloat = 0   // 0〜1：スクロールすると、見出しが小さくなって、上の帯になる
     @ViewBuilder var trailing: Trailing
 
     var body: some View {
         HStack(spacing: 10) {
-            Text(title)
-                .font(.system(size: 30, weight: .black))
-                .foregroundStyle(.white)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-            Spacer(minLength: 8)
-            trailing
             Button(action: onClose) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 15, weight: .black))
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 16, weight: .black))
                     .foregroundStyle(.white)
                     .frame(width: 38, height: 38)
                     .background(Circle().fill(Hi.tile))
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(L("閉じる"))
+            .accessibilityLabel(L("戻る"))
+            Text(title)
+                .font(.system(size: 30 - 12 * collapse, weight: .black))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            Spacer(minLength: 8)
+            trailing
         }
         .padding(.horizontal, 16)
-        .padding(.top, 20)
+        .padding(.top, 20 - 10 * collapse)
         .padding(.bottom, 6)
+        .background(Color.black.opacity(collapse * 0.9))
+        .overlay(alignment: .bottom) { Rectangle().fill(Hi.tile).frame(height: 1).opacity(collapse) }
     }
 }
 
@@ -104,6 +107,7 @@ private func noticeBadge(_ type: String) -> (symbol: String, color: Color) {
     case "friendRequest": return ("person.fill.badge.plus", Hi.neon)
     case "friendAccepted": return ("person.2.fill", Hi.neon)
     case "friendPost": return ("camera.fill", Hi.neon)
+    case "rankUp": return ("arrow.up.circle.fill", Color.yellow)
     default: return ("paperplane.fill", Hi.neon)
     }
 }
@@ -176,8 +180,10 @@ struct InboxSheet: View {
     @State private var profile: CodeTarget? = nil
     @State private var post: CommentTarget? = nil
     @State private var tab: InboxTab = .notices
+    @State private var scrollY: CGFloat = 0
+    @ObservedObject private var morning = MorningPickup.shared
 
-    private static let noticeTypes = ["comment", "like", "friendPost"]
+    private static let noticeTypes = ["comment", "like", "friendPost", "rankUp"]
     private static let requestTypes = ["friendAccepted"]
 
     private func unread(_ types: [String]) -> Int {
@@ -195,9 +201,36 @@ struct InboxSheet: View {
         return cloud.notices.filter { types.contains($0.type) && !NotifySettings.isMuted($0.type) }
     }
 
-    var body: some View {
+    private var morningRow: some View {
+        Button { morning.show = true } label: {
+            HStack(spacing: 12) {
+                HStack(spacing: -14) {
+                    ForEach(Array(morning.posts.prefix(3))) { post in
+                        if let photo = post.photo {
+                            Image(uiImage: photo).resizable().scaledToFill()
+                                .frame(width: 44, height: 44).clipShape(Circle())
+                                .overlay(Circle().stroke(Color.black, lineWidth: 2))
+                        }
+                    }
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Label(L("今日の10枚"), systemImage: "sparkles").font(.subheadline.weight(.black))
+                    Text(L("世界の公開投稿から、ランダムに選びました")).font(.caption).foregroundStyle(Hi.dim)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right").font(.footnote.weight(.bold)).foregroundStyle(Hi.dim)
+            }
+            .padding(12)
+            .background(SoftGradient(colors: morning.posts.prefix(3).compactMap { $0.photo.map { DominantColor.of($0, key: $0.description) } }, corner: 22))
+        }
+        .buttonStyle(.plain)
+    }
+
+    var body: some View { bodyContent.edgeSwipeBack() }
+
+    private var bodyContent: some View {
         VStack(spacing: 0) {
-            SheetHeader(title: L("通知"), onClose: { dismiss() }) { EmptyView() }
+            SheetHeader(title: L("通知"), onClose: { dismiss() }, collapse: min(max(scrollY / 50, 0), 1)) { EmptyView() }
             HiSegment(options: [(value: InboxTab.notices, title: segmentTitle(L("通知"), unread(Self.noticeTypes))),
                                 (value: InboxTab.requests, title: segmentTitle(L("友達リクエスト"), unread(Self.requestTypes + ["friendRequest"])))],
                       selection: $tab)
@@ -206,9 +239,11 @@ struct InboxSheet: View {
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 10) {
+                    // 一番上：毎日の「今日の10枚」（世界の公開投稿から）
+                    if tab == .notices, !morning.posts.isEmpty { morningRow }
                     if tab == .requests && !requests.isEmpty {
                         sectionTitle(L("友達リクエスト"), count: requests.count)
-                        ForEach(requests) { requestCard($0) }
+                        ForEach(requests) { requestCard($0).riseIn() }
                     }
                     if shown.isEmpty && (tab == .notices || requests.isEmpty) {
                         EmptyNote(symbol: tab == .notices ? "bell.fill" : "person.2.fill",
@@ -221,21 +256,43 @@ struct InboxSheet: View {
                         let items = shown.filter { DayGroup.of($0.date) == group }
                         if !items.isEmpty {
                             sectionTitle(group.title)
-                            ForEach(items) { noticeCard($0) }
+                            ForEach(items) { noticeCard($0).riseIn() }
                         }
                     }
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 24)
+                .trackSheetScroll($scrollY)
             }
+            .coordinateSpace(name: "sheetScroll")
             .refreshable { await cloud.refresh(force: true) }
+        }
+        // 左へなぞると友達リクエスト、右へなぞると通知へ（左の端からのなぞりは、戻る）
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 25, coordinateSpace: .global)
+                .onEnded { v in
+                    let dx = v.translation.width, dy = v.translation.height
+                    guard v.startLocation.x >= 30, abs(dx) > 60, abs(dx) > abs(dy) * 1.8 else { return }
+                    let target: InboxTab = dx < 0 ? .requests : .notices
+                    if target != tab { withAnimation(.easeOut(duration: 0.2)) { tab = target } }
+                }
+        )
+        .task { await morning.refresh() }
+        .fullScreenCover(isPresented: $morning.show) {
+            MorningPickupSheet(pickup: morning) { p in
+                morning.show = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    post = CommentTarget(id: p.id, owner: p.name.isEmpty ? "@" + p.handle : p.name,
+                                         caption: p.caption, image: p.photo, front: p.front, cloudID: p.id)
+                }
+            }
         }
         .background(Color.black.ignoresSafeArea())
         .task { await cloud.refresh(force: true) }
         .onDisappear { Task { await cloud.markAllRead() } }
-        .sheet(item: $profile) { PersonProfileSheet(code: $0.id) }
-        .sheet(item: $post) { target in
-            CommentSheet(postID: target.id, owner: target.owner, caption: target.caption, image: target.image,
+        .fullScreenCover(item: $profile) { PersonProfileSheet(code: $0.id) }
+        .fullScreenCover(item: $post) { target in
+            CommentSheet(postID: target.id, owner: target.owner, caption: target.caption, image: target.image, front: target.front,
                          prompt: target.prompt, cloudID: target.cloudID, ownRecordID: target.ownRecordID,
                          focusID: target.focusID)
                 .environmentObject(PostStore.shared)
@@ -292,6 +349,7 @@ struct InboxSheet: View {
         case "friendAccepted": return LF("{n} さんと友達になりました", ["n": name(n)])
         case "comment": return LF("{n} さんがコメントしました", ["n": name(n)])
         case "friendPost": return LF("{n} さんが投稿しました", ["n": name(n)])
+        case "rankUp": return LF("{n} さんが{r}にランクアップしました", ["n": name(n), "r": Rank(rawValue: Int(n.text) ?? -1)?.name ?? ""])
         case "like": return LF("{n} さんがリアクションしました", ["n": name(n)])
         default: return LF("{n} さんからメッセージ", ["n": name(n)])
         }
@@ -431,6 +489,7 @@ struct InboxSheet: View {
 
 /// DM の一覧：友達ごとの会話。未読の数を出し、新しい会話が上に来る。入力中も出す
 struct DMListSheet: View {
+    @State private var scrollY: CGFloat = 0
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var cloud = CloudSync.shared
     @State private var chat: CloudFriend? = nil
@@ -459,9 +518,11 @@ struct DMListSheet: View {
         }
     }
 
-    var body: some View {
+    var body: some View { bodyContent.edgeSwipeBack() }
+
+    private var bodyContent: some View {
         VStack(spacing: 0) {
-            SheetHeader(title: L("DM"), onClose: { dismiss() }) { EmptyView() }
+            SheetHeader(title: L("DM"), onClose: { dismiss() }, collapse: min(max(scrollY / 50, 0), 1)) { EmptyView() }
             ScrollView {
                 LazyVStack(spacing: 10) {
                     if cloud.friends.isEmpty {
@@ -470,22 +531,26 @@ struct DMListSheet: View {
                                   detail: L("友達になると、ここからメッセージを送れます。"))
                             .padding(.top, 8)
                     }
-                    ForEach(ordered) { friend in row(friend) }
+                    ForEach(ordered) { friend in row(friend).riseIn() }
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 24)
+                .trackSheetScroll($scrollY)
             }
+            .coordinateSpace(name: "sheetScroll")
             .refreshable { await reloadAll() }
         }
         .background(Color.black.ignoresSafeArea())
         .task {
+            // 開いたとき、友達の名前を読み直す（相手が名前を変えていたら、ここで直る）
+            await cloud.refreshFriendIdentities(force: true)
             // 開いているあいだ、友達ごとの会話を数秒ごとに読み直す（未読と入力中）
             while !Task.isCancelled {
                 await reloadAll()
                 try? await Task.sleep(nanoseconds: 3_000_000_000)
             }
         }
-        .sheet(item: $chat) { ChatView(friend: $0) }
+        .fullScreenCover(item: $chat) { ChatView(friend: $0) }
         .presentationDetents([.large])
         .presentationBackground(.black)
         .preferredColorScheme(.dark)
@@ -564,7 +629,7 @@ struct DMPhotoViewer: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        ZStack(alignment: .topTrailing) {
+        ZStack(alignment: .topLeading) {
             Color.black.ignoresSafeArea()
             DualPhotoView(main: main, inset: inset)
                 .aspectRatio(PhotoShape.ratio, contentMode: .fit)
@@ -572,15 +637,16 @@ struct DMPhotoViewer: View {
                 .padding(16)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             Button { dismiss() } label: {
-                Image(systemName: "xmark")
+                Image(systemName: "chevron.left")
                     .font(.system(size: 16, weight: .bold))
                     .foregroundStyle(.white)
                     .frame(width: 44, height: 44)
                     .background(Circle().fill(Color.white.opacity(0.15)))
             }
             .padding(16)
-            .accessibilityLabel(L("閉じる"))
+            .accessibilityLabel(L("戻る"))
         }
+        .edgeSwipeBack(anywhere: true)
     }
 }
 
@@ -602,7 +668,11 @@ struct ChatView: View {
     @FocusState private var focused: Bool
 
     private var list: [CloudMessage] { cloud.messages[friend.uid] ?? [] }
-    private var name: String { friend.name.isEmpty ? friend.code : friend.name }
+    /// 開いている間に友達が名前を変えても、最新の名前を出す
+    private var name: String {
+        let latest = cloud.friends.first { $0.uid == friend.uid } ?? friend
+        return latest.name.isEmpty ? latest.code : latest.name
+    }
     /// 自分の最後のメッセージ（既読の表示を出す場所）
     private var myLastID: String? { list.last(where: { $0.from == cloud.uid })?.id }
     private var readAt: Date? { cloud.friendReadAt[friend.uid] }
@@ -611,12 +681,14 @@ struct ChatView: View {
         cloud.friendTypingAt[friend.uid].map { Date().timeIntervalSince($0) < 4 } ?? false
     }
 
-    var body: some View {
+    var body: some View { bodyContent.edgeSwipeBack() }
+
+    private var bodyContent: some View {
         VStack(spacing: 0) {
             header
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(spacing: 4) {
+                    LazyVStack(spacing: 0) {
                         if list.isEmpty {
                             VStack(spacing: 10) {
                                 PersonAvatar(uid: friend.uid, name: name, size: 84)
@@ -634,8 +706,18 @@ struct ChatView: View {
                                     .foregroundStyle(Hi.dim)
                                     .padding(.top, 12).padding(.bottom, 4)
                             }
-                            bubble(message)
+                            // 同じ人が続けて送った吹き出しは、最後の1つだけ「しっぽ」をつける
+                            let next = index + 1 < list.count ? list[index + 1] : nil
+                            let tail = next == nil || next!.from != message.from || next!.date.timeIntervalSince(message.date) > 120
+                            bubble(message, tail: tail)
+                                .padding(.bottom, tail ? 10 : 2)
                                 .id(message.id)
+                        }
+                        // 相手が入力しているとき：3つの点が跳ねる吹き出し
+                        if typingNow {
+                            HStack { TypingBubble(); Spacer(minLength: 0) }
+                                .id("typing")
+                                .transition(.opacity.combined(with: .scale(scale: 0.8, anchor: .bottomLeading)))
                         }
                     }
                     .padding(.horizontal, 14)
@@ -644,6 +726,9 @@ struct ChatView: View {
                 .scrollDismissesKeyboard(.interactively)
                 .onChange(of: list.last?.id) { _, id in
                     if let id { withAnimation { proxy.scrollTo(id, anchor: .bottom) } }
+                }
+                .onChange(of: typingNow) { _, on in
+                    if on { withAnimation { proxy.scrollTo("typing", anchor: .bottom) } }
                 }
                 .onAppear {
                     if let id = list.last?.id { proxy.scrollTo(id, anchor: .bottom) }
@@ -669,7 +754,7 @@ struct ChatView: View {
                 try? await Task.sleep(nanoseconds: 1_500_000_000)
             }
         }
-        .sheet(item: $profileCode) { PersonProfileSheet(code: $0.id) }
+        .fullScreenCover(item: $profileCode) { PersonProfileSheet(code: $0.id) }
         .fullScreenCover(isPresented: $showCamera) {
             // 投稿と同じ撮影画面（両方撮り・ズーム・前後切り替え）。撮った写真は、この会話に送る
             CaptureFlow(directSend: { image, front in
@@ -706,9 +791,18 @@ struct ChatView: View {
             : date.appFormatted(date: .abbreviated, time: .shortened)
     }
 
-    /// 上：相手のアイコンと名前、閉じるボタン
+    /// 上：戻る、相手のアイコンと名前
     private var header: some View {
         HStack(spacing: 12) {
+            Button { dismiss() } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 16, weight: .black))
+                    .foregroundStyle(.white)
+                    .frame(width: 38, height: 38)
+                    .background(Circle().fill(Hi.tile))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(L("戻る"))
             Button { profileCode = CodeTarget(id: friend.code) } label: {
             HStack(spacing: 12) {
             PersonAvatar(uid: friend.uid, name: name, size: 40)
@@ -724,15 +818,6 @@ struct ChatView: View {
             }
             .buttonStyle(.plain)
             Spacer()
-            Button { dismiss() } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 15, weight: .black))
-                    .foregroundStyle(.white)
-                    .frame(width: 38, height: 38)
-                    .background(Circle().fill(Hi.tile))
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(L("閉じる"))
         }
         .padding(.horizontal, 16)
         .padding(.top, 18)
@@ -742,12 +827,12 @@ struct ChatView: View {
     }
 
     /// 1件の吹き出し。長押しで絵文字を選ぶ。下に、リアクションと既読
-    private func bubble(_ m: CloudMessage) -> some View {
+    private func bubble(_ m: CloudMessage, tail: Bool = true) -> some View {
         let mine = m.from == cloud.uid
         return VStack(alignment: mine ? .trailing : .leading, spacing: 3) {
             HStack(alignment: .bottom) {
-                if mine { Spacer(minLength: 60) }
-                content(m, mine: mine)
+                if mine { Spacer(minLength: UIScreen.main.bounds.width * 0.25) }   // 吹き出しの幅は、画面の75%まで
+                content(m, mine: mine, tail: tail)
                     .contextMenu {
                         ForEach(Reactions.all, id: \.self) { emoji in
                             Button(emoji) {
@@ -760,24 +845,28 @@ struct ChatView: View {
                             }
                         }
                     }
-                if !mine { Spacer(minLength: 60) }
+                if !mine { Spacer(minLength: UIScreen.main.bounds.width * 0.25) }
             }
             if !m.reactions.isEmpty {
                 reactionChip(m)
             }
             if mine && m.id == myLastID {
                 let read = readAt.map { $0 >= m.date } ?? false
-                Text(read ? L("既読") : L("送信済み"))
-                    .font(.caption2.weight(.black))
-                    .foregroundStyle(read ? Hi.neon : Hi.dim)
-                    .padding(.trailing, 4)
+                HStack(spacing: 4) {
+                    Text(m.date.appFormatted(date: .omitted, time: .shortened))
+                    Text("·")
+                    Text(read ? L("既読") : L("送信済み")).foregroundStyle(read ? Hi.neon : Hi.dim)
+                }
+                .font(.caption2.weight(.black))
+                .foregroundStyle(Hi.dim)
+                .padding(.trailing, 4)
             }
         }
     }
 
     /// 中身：文字・写真・ボイス
     @ViewBuilder
-    private func content(_ m: CloudMessage, mine: Bool) -> some View {
+    private func content(_ m: CloudMessage, mine: Bool, tail: Bool = true) -> some View {
         switch m.kind {
         case "photo":
             VStack(alignment: mine ? .trailing : .leading, spacing: 6) {
@@ -812,17 +901,20 @@ struct ChatView: View {
                 VoiceBubble(data: data, duration: m.duration, mine: mine)
             }
         default:
+            VStack(alignment: mine ? .trailing : .leading, spacing: 4) {
             Text(m.text)
                 .font(.body)
                 .padding(.horizontal, 14).padding(.vertical, 9)
                 .background(
-                    UnevenRoundedRectangle(topLeadingRadius: 20, bottomLeadingRadius: mine ? 20 : 6,
-                                           bottomTrailingRadius: mine ? 6 : 20, topTrailingRadius: 20,
+                    UnevenRoundedRectangle(topLeadingRadius: 20, bottomLeadingRadius: (mine || !tail) ? 20 : 6,
+                                           bottomTrailingRadius: (mine && tail) ? 6 : 20, topTrailingRadius: 20,
                                            style: .continuous)
                         .fill(mine ? Hi.neon : Hi.tile)
                 )
                 .foregroundStyle(mine ? Hi.onNeon : .white)
                 .textSelection(.enabled)
+            if !mine { TranslateLine(text: m.text) }
+            }
         }
     }
 
@@ -883,6 +975,7 @@ struct ChatView: View {
                 Button {
                     let sending = text
                     text = ""
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
                     Task { await cloud.sendMessage(to: friend.uid, text: sending) }
                 } label: {
                     Image(systemName: "paperplane.fill")
@@ -913,6 +1006,7 @@ struct ChatView: View {
                     .onChanged { _ in
                         guard !holding else { return }
                         holding = true
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()   // 録音の開始
                         hint = L("録音中…（離すと送信）")
                         Task {
                             if await recorder.start() == false {
@@ -932,6 +1026,7 @@ struct ChatView: View {
                             do {
                                 try await cloud.sendVoice(to: friend.uid, data: rec.data, duration: rec.duration)
                             } catch {
+                                UINotificationFeedbackGenerator().notificationOccurred(.error)
                                 hint = L("ボイスが大きすぎます。短く録ってください。")
                             }
                         }
@@ -961,6 +1056,26 @@ struct ChatView: View {
 }
 
 /// ボイスの吹き出し：押すと再生する
+/// 相手が入力しているときの、3つの点が順に跳ねる吹き出し（動きを減らす設定のときは、止めておく）
+private struct TypingBubble: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var up = false
+
+    var body: some View {
+        HStack(spacing: 5) {
+            ForEach(0..<3, id: \.self) { i in
+                Circle().fill(Hi.dim).frame(width: 7, height: 7)
+                    .offset(y: up && !reduceMotion ? -4 : 2)
+                    .animation(reduceMotion ? nil : .easeInOut(duration: 0.45).repeatForever(autoreverses: true).delay(Double(i) * 0.15), value: up)
+            }
+        }
+        .padding(.horizontal, 15).padding(.vertical, 14)
+        .background(UnevenRoundedRectangle(topLeadingRadius: 20, bottomLeadingRadius: 6, bottomTrailingRadius: 20, topTrailingRadius: 20, style: .continuous).fill(Hi.tile))
+        .onAppear { up = true }
+        .accessibilityLabel(L("入力中…"))
+    }
+}
+
 private struct VoiceBubble: View {
     let data: Data
     let duration: Double

@@ -1,4 +1,5 @@
 import SwiftUI
+import CoreLocation
 
 /// 世界の画面：同じお題を、世界のどこで・いつ撮ったかを見せる。地図が主役。
 /// 「地図」「タイムライン」「タイムアタック」を切り替える。
@@ -16,11 +17,16 @@ struct WorldView: View {
     @AppStorage("friendList") private var friendList: String = MyProfile.defaultFriends
     @State private var mode: Mode = .now
     @State private var selectedID: String? = nil
-    @State private var base = Date()       // サンプルの「何分前」の基準
+    @State private var base = Date()
     @State private var regionSelection = PostStore.regionIndex   // タイムアタックで見ている地域
     @State private var commentTarget: CommentTarget? = nil
+    @State private var mapCity: String? = nil
+    @ObservedObject private var focus = WorldFocus.shared
+    @State private var regionSheet: WorldRegion? = nil
+    @State private var regionPos: Int? = 0
 
-    private let samples = WorldSamples.all
+    /// 世界の人の本物の公開投稿のうち、場所（都市の中心あたり）がわかるもの
+    private var pins: [WorldPin] { cloud.publicPosts.compactMap(WorldPin.init) }
 
     /// いま見せるお題（今日の通知の前は前日。はじめての日は伏せる）
     private var prompt: String { store.activePrompt() ?? "？" }
@@ -29,7 +35,8 @@ struct WorldView: View {
     private var board: [WorldRankEntry] {
         let input = AchievementInput(records: store.records, friendCount: MyProfile.friendCount(friendList))
         let monthly = MonthlyPoints(records: store.records, month: MonthlyPoints.monthKey(for: Date()))
-        return WorldRanking.board(region: regionSelection, myBest: stats.best,
+        let todayBest = store.records(day: store.activeDayKey()).compactMap(\.elapsed).min()
+        return WorldRanking.board(region: regionSelection, others: cloud.worldTimes, myBest: todayBest,
                                   myName: "@" + MyProfile.handle(myHandle),
                                   myTrophies: Trophy.allCases.filter { $0.isUnlocked(input) },
                                   myRank: monthly.rank)
@@ -38,13 +45,18 @@ struct WorldView: View {
     var body: some View {
         if feedOnly {
             timeline
-                .sheet(item: $commentTarget) { target in
+                .fullScreenCover(item: Binding(get: { mapCity.map { MapCityTarget(id: $0) } }, set: { mapCity = $0?.id })) {
+                    LocationMapSheet(city: $0.id, latitude: nil, longitude: nil, photo: myLatestPhoto)
+                }
+                .fullScreenCover(item: $commentTarget) { target in
                     CommentSheet(postID: target.id, owner: target.owner, caption: target.caption,
-                                 image: target.image, prompt: target.prompt, cloudID: target.cloudID, ownRecordID: target.ownRecordID)
+                                 image: target.image, front: target.front, prompt: target.prompt, cloudID: target.cloudID, ownRecordID: target.ownRecordID)
                         .environmentObject(store)
                 }
+                .fullScreenCover(item: $regionSheet) { RegionPostsSheet(region: $0, base: base).environmentObject(store) }
         } else {
             worldBody
+                .fullScreenCover(item: $regionSheet) { RegionPostsSheet(region: $0, base: base).environmentObject(store) }
         }
     }
 
@@ -68,7 +80,7 @@ struct WorldView: View {
                 VStack(spacing: 10) {
                     Group {
                         if isActive {
-                            WorldMapView(samples: samples, base: base, selectedID: $selectedID)
+                            WorldMapView(samples: pins, base: base, myPhoto: myLatestPhoto, focus: focus.request, selectedID: $selectedID)
                         } else {
                             Color.black
                         }
@@ -78,6 +90,7 @@ struct WorldView: View {
                             // 地図の下の Apple のロゴと「法律に基づく情報」は隠さない（上に余白を取る）
                             mapBottom.padding(.horizontal, 10).padding(.bottom, 40)
                         }
+                        .overlay(alignment: .topLeading) { regionBadge.padding(10) }
                         .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
                         .padding(.horizontal, 16)
                         .padding(.bottom, 8)
@@ -91,30 +104,64 @@ struct WorldView: View {
             }
         }
         .background(Color.black.ignoresSafeArea())
+        .task { await cloud.refresh() }
+        .onChange(of: focus.request?.id) { _, _ in mode = .now }
     }
 
-    // MARK: - 地図の下：選んだ都市のカード、または都市の一覧
+    /// 「世界の今」から来たときの、左上のボタン（押すと、その地域の投稿）
+    @ViewBuilder
+    private var regionBadge: some View {
+        if let region = focus.request?.region {
+            HStack(spacing: 4) {
+                Button { regionSheet = region } label: {
+                    HStack(spacing: 6) {
+                        Text(region.flag)
+                        Text(LF("{c}の投稿", ["c": L(region.city)])).font(.subheadline.weight(.black))
+                        Image(systemName: "chevron.right").font(.caption.weight(.black))
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.leading, 12).padding(.trailing, 10)
+                    .frame(height: 38)
+                }
+                .buttonStyle(.plain)
+                Button { focus.request = nil } label: {
+                    Image(systemName: "xmark").font(.caption.weight(.black)).foregroundStyle(.white.opacity(0.8))
+                        .frame(width: 30, height: 38)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L("閉じる"))
+            }
+            .background(Capsule().fill(Color.black.opacity(0.7)))
+        }
+    }
+
+    // MARK: - 地図の下：選んだ投稿のカード、または投稿の一覧
 
     @ViewBuilder
     private var mapBottom: some View {
-        if let sample = samples.first(where: { $0.id == selectedID }) {
-            cityCard(sample)
+        if let pin = pins.first(where: { $0.id == selectedID }) {
+            cityCard(pin)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
+        } else if pins.isEmpty {
+            Text(L("まだ世界の公開投稿はありません"))
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 14)
+                .frame(height: 38)
+                .background(Capsule().fill(Color.black.opacity(0.65)))
         } else {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    ForEach(samples.sorted { $0.minutesAgo < $1.minutesAgo }) { sample in
+                    ForEach(pins.sorted { $0.postedAt > $1.postedAt }) { pin in
                         Button {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { selectedID = sample.id }
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { selectedID = pin.id }
                         } label: {
-                            HStack(spacing: 6) {
-                                Text(sample.flag)
-                                Text(sample.city).font(.subheadline.weight(.bold)).lineLimit(1)
-                            }
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 12)
-                            .frame(height: 38)
-                            .background(Capsule().fill(Color.black.opacity(0.65)))
+                            Text(pin.city.isEmpty ? "@" + pin.handle : pin.city)
+                                .font(.subheadline.weight(.bold)).lineLimit(1)
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 12)
+                                .frame(height: 38)
+                                .background(Capsule().fill(Color.black.opacity(0.65)))
                         }
                         .buttonStyle(.plain)
                     }
@@ -123,29 +170,30 @@ struct WorldView: View {
         }
     }
 
-    /// 都市のカード：その土地のいまの光、現地時刻、あいさつ、タイム
-    private func cityCard(_ sample: WorldSample) -> some View {
-        let light = sample.light(base: base)
+    /// 選んだ投稿のカード：本物の写真、都市、現地時刻、タイム
+    private func cityCard(_ pin: WorldPin) -> some View {
+        let light = pin.light(base: base)
         return HStack(spacing: 12) {
             ZStack {
-                if let photo = sample.photo {
+                if let photo = pin.photo {
                     Image(uiImage: photo).resizable().scaledToFill()
                 } else {
                     GlowBackground(palette: light.palette, focus: .center)
                 }
-                Text(sample.flag).font(.system(size: 30))
             }
             .frame(width: 72, height: 72)
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             VStack(alignment: .leading, spacing: 3) {
-                Text(sample.city).font(.headline.weight(.black))
-                Text(LF("現地 {t}", ["t": sample.localTime(base: base)]) + "・" + light.name)
+                Text(pin.city.isEmpty ? "@" + pin.handle : pin.city).font(.headline.weight(.black))
+                Text(LF("現地 {t}", ["t": pin.localTime(base: base)]) + "・" + light.name)
                     .font(.caption.weight(.bold))
                     .foregroundStyle(Hi.dim)
-                Text("「\(sample.greeting)」").font(.subheadline.weight(.bold)).lineLimit(1)
-                Text("@\(sample.handle)・\(TimeFormat.string(sample.time))")
-                    .font(.caption)
-                    .foregroundStyle(Hi.neon)
+                HStack(spacing: 6) {
+                    Text("@" + pin.handle)
+                    if let elapsed = pin.elapsed { Text(TimeFormat.string(elapsed)) }
+                }
+                .font(.caption)
+                .foregroundStyle(Hi.neon)
             }
             Spacer(minLength: 0)
             Button {
@@ -166,174 +214,42 @@ struct WorldView: View {
 
     // MARK: - タイムライン（Xのように、世界の投稿を1列で）
 
-    private struct Pickup: Identifiable {
-        let id: String
-        let title: String
-        let icon: String
-        let sample: WorldSample
-        let detail: String
-    }
-
-    /// 世界からのピックアップ：最速、いま夜の場所、あなたと時差がいちばん大きい場所
-    private var pickups: [Pickup] {
-        var result: [Pickup] = []
-        if let fastest = samples.min(by: { $0.time < $1.time }) {
-            result.append(Pickup(id: "fastest", title: L("最速"), icon: "bolt.fill", sample: fastest,
-                                 detail: TimeFormat.string(fastest.time)))
-        }
-        if let night = samples.filter({ $0.light(base: base) == .night }).min(by: { $0.minutesAgo < $1.minutesAgo }) {
-            result.append(Pickup(id: "night", title: L("いま夜"), icon: "moon.stars.fill", sample: night,
-                                 detail: LF("現地 {t}", ["t": night.localTime(base: base)])))
-        }
-        let mine = TimeZone.current.secondsFromGMT(for: base)
-        if let farthest = samples.max(by: {
-            abs($0.timeZone.secondsFromGMT(for: base) - mine) < abs($1.timeZone.secondsFromGMT(for: base) - mine)
-        }) {
-            let hours = Int((Double(abs(farthest.timeZone.secondsFromGMT(for: base) - mine)) / 3600).rounded())
-            result.append(Pickup(id: "far", title: L("時差が最大"), icon: "clock.arrow.2.circlepath", sample: farthest,
-                                 detail: LF("{n}時間ちがい", ["n": "\(hours)"])))
-        }
-        return result
-    }
-
     private var timeline: some View {
-        let sorted = samples.sorted { $0.minutesAgo < $1.minutesAgo }
-        return ScrollView {
+        ScrollView {
             LazyVStack(spacing: 18) {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text(L("世界からのピックアップ"))
-                            .font(.subheadline.weight(.black))
-                        Spacer()
-                        Text(L("サンプル")).font(.caption.weight(.bold)).foregroundStyle(Hi.dim)
-                    }
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 10) {
-                            ForEach(pickups) { pickup in
-                                pickupCard(pickup)
-                            }
-                        }
-                    }
-                }
+                Color.clear.frame(height: 0).reportScroll(tag: 1)
                 // 自分の投稿（みんなにも出る。コメントを受け付けるかは、自分で選べる）
                 if !myPublicPosts.isEmpty { myStrip }
+                // 毎朝、世界の公開投稿からランダムに10枚（同じ日は、同じ10枚）
+                pickupStrip
                 // サーバーから届いた、世界の人の本物の投稿
                 ForEach(cloud.publicPosts) { post in
                     CloudPostCard(post: post) { commentTarget = $0 }
+                        .riseIn()
                 }
-                if cloud.isOn {
-                    HStack {
-                        Text(L("ここから下はサンプルです")).font(.caption.weight(.black))
-                        Spacer()
+                if cloud.publicPosts.isEmpty {
+                    VStack(spacing: 4) {
+                        Text(L("まだ世界の公開投稿はありません")).font(.subheadline.weight(.black))
+                        Text(L("公開で投稿すると、世界のみんなの地図と一覧に出ます。"))
+                            .font(.caption).foregroundStyle(Hi.dim)
+                            .multilineTextAlignment(.center)
                     }
-                    .foregroundStyle(Hi.dim)
-                    .padding(.top, 8)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 40)
                 }
-                ForEach(sorted) { sample in
-                    feedCard(sample)
-                }
-                Text(L("他の人の投稿はサンプルです。写真の代わりに、その土地のいまの光で表しています。"))
-                    .font(.caption)
-                    .foregroundStyle(Hi.dim)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.bottom, 16)
             }
             .padding(.horizontal, 16)
         }
+        .coordinateSpace(name: "feedScroll")
         .refreshable { await cloud.refresh(force: true) }
     }
 
-    private func pickupCard(_ pickup: Pickup) -> some View {
-        let light = pickup.sample.light(base: base)
-        return Button {
-            if !feedOnly { withAnimation { selectedID = pickup.sample.id } }
-        } label: {
-            ZStack(alignment: .topLeading) {
-                GlowBackground(palette: light.palette)
-                VStack(alignment: .leading, spacing: 0) {
-                    Label(pickup.title, systemImage: pickup.icon)
-                        .font(.caption.weight(.black))
-                    Spacer()
-                    Text("\(pickup.sample.flag) \(pickup.sample.city)")
-                        .font(.subheadline.weight(.black))
-                    Text(pickup.detail)
-                        .font(.caption.weight(.bold).monospacedDigit())
-                }
-                .foregroundStyle(light.textColor)
-                .padding(12)
-            }
-            .frame(width: 150, height: 116)
-            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(LF("{a} {b} {c}。地図で見る", ["a": pickup.title, "b": pickup.sample.city, "c": pickup.detail]))
-    }
-
-    /// 1件の投稿：アイコン、@名前、都市・現地の時刻、正方形の写真（あいさつと時刻つき）、反応
-    private func feedCard(_ sample: WorldSample) -> some View {
-        let light = sample.light(base: base)
-        let reactionID = "world-\(sample.id)"
-        return VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
-                ZStack {
-                    GlowBackground(palette: light.palette, focus: .center)
-                    Text(sample.flag).font(.title3)
-                }
-                .frame(width: 42, height: 42)
-                .clipShape(Circle())
-                VStack(alignment: .leading, spacing: 1) {
-                    HStack(spacing: 6) {
-                        Text("@" + sample.handle).font(.subheadline.weight(.black))
-                        RankBadge(rank: sample.rank)
-                    }
-                    Text("\(sample.city)・\(agoText(sample.minutesAgo))")
-                        .font(.caption)
-                        .foregroundStyle(Hi.dim)
-                }
-                Spacer(minLength: 0)
-                TrophyBadges(trophies: sample.trophies, limit: 2)
-            }
-            ZStack {
-                    if let photo = sample.photo {
-                        Image(uiImage: photo).resizable().scaledToFill()
-                    } else {
-                        GlowBackground(palette: light.palette)
-                    }
-                    VStack {
-                        HStack {
-                            Label(light.name, systemImage: light.icon)
-                                .font(.caption.weight(.bold))
-                            Spacer()
-                            DotText(text: sample.localTime(base: base), pitch: 4, color: light.textColor)
-                        }
-                        Spacer()
-                        HStack(alignment: .bottom) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("「\(sample.greeting)」").font(.title.weight(.black))
-                                Text(sample.language).font(.caption.weight(.bold))
-                            }
-                            Spacer()
-                        }
-                    }
-                    .foregroundStyle(light.textColor)
-                    .padding(16)
-                }
-                .aspectRatio(PhotoShape.ratio, contentMode: .fit)
-                .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
-                .contentShape(Rectangle())
-                .socialPhoto(postID: reactionID, allowComments: !sample.commentsOff) {
-                    commentTarget = CommentTarget(id: reactionID, owner: "@" + sample.handle, caption: "「\(sample.greeting)」",
-                                                  image: sample.photo)
-                }
-                .accessibilityElement(children: .contain)
-                .accessibilityLabel(LF("{a} 現地{b} {c}。地図で見る", ["a": sample.city, "b": sample.localTime(base: base), "c": light.name]))
-
-            // 公開の投稿：コメントを受け付けるかは、投稿した人が決める
-            CommentLine(postID: reactionID, allowComments: !sample.commentsOff) {
-                commentTarget = CommentTarget(id: reactionID, owner: "@" + sample.handle, caption: "「\(sample.greeting)」",
-                                              image: sample.photo)
-            }
-        }
+    /// 自分のピンの上に出す、今日いちばん新しい自分の写真（公開でなくても、自分の画面にだけ出す）
+    private var myLatestPhoto: UIImage? {
+        store.records(day: store.activeDayKey())
+            .filter { $0.postedPhotoFile != nil }
+            .max { ($0.postedAt ?? .distantPast) < ($1.postedAt ?? .distantPast) }
+            .flatMap { $0.postedPhotoFile }.flatMap { store.image(for: $0) }
     }
 
     /// みんなに出す、自分の投稿（いま見せる日のもの）
@@ -345,6 +261,58 @@ struct WorldView: View {
     }
 
     /// 自分の今日の投稿は、みんなの画面の上に小さく一列にまとめる（押すと、写真とコメントを開く）
+    /// 世界12都市の、いまの光・あいさつ・時刻（時計から計算するので、いつでも本物）
+    private static let regionClocks = WorldRegion.all
+
+    private var pickupStrip: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(L("世界の今")).font(.subheadline.weight(.black))
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) { ForEach(Self.regionClocks) { regionCard($0).id($0.id) } }
+                    .scrollTargetLayout()
+            }
+            .scrollTargetBehavior(.viewAligned)
+            .scrollPosition(id: $regionPos)
+            .sensoryFeedback(.selection, trigger: regionPos)
+            HStack { Spacer(); PillIndicator(count: Self.regionClocks.count, index: regionPos ?? 0); Spacer() }
+        }
+    }
+
+    private func regionCard(_ clock: WorldRegion) -> some View {
+        let tz = TimeZone(identifier: clock.zone) ?? .gmt
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = tz
+        let hour = calendar.component(.hour, from: base)
+        let light = LocalLight(hour: hour)
+        let time = Clock.string(base, zone: tz)
+        // 押すと「世界」の地図がその地域へ。長押しで、その地域の投稿
+        return Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            focus.request = WorldFocusRequest(region: clock)
+        } label: {
+            ZStack(alignment: .topLeading) {
+                GlowBackground(palette: light.palette)
+                VStack(alignment: .leading, spacing: 0) {
+                    Label(light.name, systemImage: light.icon).font(.caption.weight(.black))
+                    Spacer()
+                    Text("「\(clock.greeting)」").font(.footnote.weight(.black)).lineLimit(1)
+                    Text("\(clock.flag) \(L(clock.city))").font(.subheadline.weight(.black)).lineLimit(1)
+                    Text(LF("現地 {t}", ["t": time])).font(.caption.weight(.bold).monospacedDigit())
+                }
+                .foregroundStyle(light.textColor)
+                .padding(12)
+            }
+            .frame(width: 150, height: 116)
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .contextMenu {
+            Button { regionSheet = clock } label: { Label(L("この地域の投稿を見る"), systemImage: "photo.on.rectangle") }
+            Button { focus.request = WorldFocusRequest(region: clock) } label: { Label(L("地図で見る"), systemImage: "map") }
+        }
+        .accessibilityLabel("\(L(clock.city)) \(time) \(light.name)")
+    }
+
     private var myStrip: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 14) {
@@ -402,7 +370,8 @@ struct WorldView: View {
                         Text(L(record.prompt))
                         if let city = record.city {
                             Text("・")
-                            Label(city, systemImage: "mappin")
+                            Button { mapCity = city } label: { Label(city, systemImage: "mappin").foregroundStyle(Hi.neon) }
+                                .buttonStyle(.plain)
                         }
                     }
                     .font(.caption).foregroundStyle(Hi.dim).lineLimit(1)
@@ -421,11 +390,6 @@ struct WorldView: View {
         }
     }
 
-    private func agoText(_ minutes: Int) -> String {
-        if minutes < 60 { return LF("{n}分前", ["n": "\(minutes)"]) }
-        return LF("{n}時間前", ["n": "\(minutes / 60)"])
-    }
-
     // MARK: - タイムアタック
 
     private var ranking: some View {
@@ -434,7 +398,7 @@ struct WorldView: View {
             VStack(spacing: 14) {
                 // 4つの地域から選ぶ（初期は、自分の地域）
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
-                    ForEach(WorldRanking.regions, id: \.self) { region in
+                    ForEach([mine, WorldRanking.world], id: \.self) { region in
                         let isOn = region == regionSelection
                         Button {
                             regionSelection = region
@@ -456,9 +420,16 @@ struct WorldView: View {
                     }
                 }
 
-                VStack(spacing: -16) {
-                    ForEach(Array(board.enumerated()), id: \.element.id) { index, entry in
-                        rankCard(position: index + 1, entry: entry)
+                if board.isEmpty {
+                    Text(L("お題に合う写真を撮ると入ります"))
+                        .font(.subheadline.weight(.bold)).foregroundStyle(Hi.dim)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 28)
+                } else {
+                    VStack(spacing: -16) {
+                        ForEach(Array(board.enumerated()), id: \.element.id) { index, entry in
+                            rankCard(position: index + 1, entry: entry)
+                        }
                     }
                 }
 
@@ -476,13 +447,7 @@ struct WorldView: View {
     }
 
     private var regionNote: String {
-        let name = WorldRanking.regionName(regionSelection)
-        if regionSelection != PostStore.regionIndex {
-            return LF("{n} のランキングです（他の人はサンプル）。あなたの記録は、自分の地域に入ります。", ["n": name])
-        }
-        return stats.best == nil
-            ? LF("{n} のランキングです（他の人はサンプル）。お題に合う写真と確認できた投稿を、ここに並べます。", ["n": name])
-            : LF("{n} のランキングです（他の人はサンプル）。お題に合うと確認できた投稿の自己ベストを並べています。", ["n": name])
+        LF("{n} の、今日のタイムのランキングです。公開で投稿した人が入ります。", ["n": WorldRanking.regionName(regionSelection)])
     }
 
     private func rankCard(position: Int, entry: WorldRankEntry) -> some View {
@@ -519,5 +484,106 @@ struct WorldView: View {
         )
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .accessibilityElement(children: .combine)
+    }
+}
+
+struct MapCityTarget: Identifiable { let id: String }
+
+
+// MARK: - 世界の今：地域
+
+/// 「世界の今」に並ぶ12都市（時計から、いまの光・あいさつ・時刻を出す）
+struct WorldRegion: Identifiable, Equatable {
+    let id: Int
+    let city: String
+    let flag: String
+    let zone: String
+    let greeting: String
+    let latitude: Double
+    let longitude: Double
+
+    var coordinate: CLLocationCoordinate2D { CLLocationCoordinate2D(latitude: latitude, longitude: longitude) }
+    static func == (a: WorldRegion, b: WorldRegion) -> Bool { a.id == b.id }
+
+    static let all = [
+        WorldRegion(id: 0, city: "シドニー", flag: "🇦🇺", zone: "Australia/Sydney", greeting: "G'day", latitude: -33.9, longitude: 151.2),
+        WorldRegion(id: 1, city: "東京", flag: "🇯🇵", zone: "Asia/Tokyo", greeting: "やあ", latitude: 35.7, longitude: 139.7),
+        WorldRegion(id: 2, city: "ソウル", flag: "🇰🇷", zone: "Asia/Seoul", greeting: "안녕", latitude: 37.6, longitude: 127.0),
+        WorldRegion(id: 3, city: "シンガポール", flag: "🇸🇬", zone: "Asia/Singapore", greeting: "你好", latitude: 1.4, longitude: 103.8),
+        WorldRegion(id: 4, city: "ムンバイ", flag: "🇮🇳", zone: "Asia/Kolkata", greeting: "नमस्ते", latitude: 19.1, longitude: 72.9),
+        WorldRegion(id: 5, city: "カイロ", flag: "🇪🇬", zone: "Africa/Cairo", greeting: "مرحبا", latitude: 30.0, longitude: 31.2),
+        WorldRegion(id: 6, city: "ナイロビ", flag: "🇰🇪", zone: "Africa/Nairobi", greeting: "Jambo", latitude: -1.3, longitude: 36.8),
+        WorldRegion(id: 7, city: "パリ", flag: "🇫🇷", zone: "Europe/Paris", greeting: "Salut", latitude: 48.9, longitude: 2.4),
+        WorldRegion(id: 8, city: "レイキャビク", flag: "🇮🇸", zone: "Atlantic/Reykjavik", greeting: "Halló", latitude: 64.1, longitude: -21.9),
+        WorldRegion(id: 9, city: "サンパウロ", flag: "🇧🇷", zone: "America/Sao_Paulo", greeting: "Oi", latitude: -23.5, longitude: -46.6),
+        WorldRegion(id: 10, city: "ニューヨーク", flag: "🇺🇸", zone: "America/New_York", greeting: "Hey", latitude: 40.7, longitude: -74.0),
+        WorldRegion(id: 11, city: "バンクーバー", flag: "🇨🇦", zone: "America/Vancouver", greeting: "Hi", latitude: 49.3, longitude: -123.1),
+    ]
+}
+
+/// 地図を動かす頼み（「世界の今」を押したとき）
+struct WorldFocusRequest: Equatable {
+    let id = UUID()
+    let region: WorldRegion
+    var coordinate: CLLocationCoordinate2D { region.coordinate }
+    static func == (a: WorldFocusRequest, b: WorldFocusRequest) -> Bool { a.id == b.id }
+}
+
+/// タイムラインの「世界の今」から、「世界」タブの地図へ橋渡しする
+@MainActor
+final class WorldFocus: ObservableObject {
+    static let shared = WorldFocus()
+    @Published var request: WorldFocusRequest? = nil
+}
+
+/// ある地域の、世界の公開投稿の一覧
+struct RegionPostsSheet: View {
+    let region: WorldRegion
+    let base: Date
+    @ObservedObject private var cloud = CloudSync.shared
+    @EnvironmentObject private var store: PostStore
+    @Environment(\.dismiss) private var dismiss
+    @State private var commentTarget: CommentTarget? = nil
+
+    private var posts: [CloudPost] {
+        let offset = (TimeZone(identifier: region.zone) ?? .gmt).secondsFromGMT(for: base)
+        return cloud.publicPosts.filter { abs($0.tzOffset - offset) <= 3600 }.sorted { $0.postedAt > $1.postedAt }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Button { dismiss() } label: {
+                    Image(systemName: "chevron.left").font(.subheadline.weight(.bold)).foregroundStyle(.white)
+                        .frame(width: 32, height: 32).background(Circle().fill(Color.white.opacity(0.15)))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L("戻る"))
+                Text("\(region.flag) " + LF("{c}の投稿", ["c": L(region.city)])).font(.headline.weight(.black))
+                Spacer()
+            }
+            .padding(16)
+            ScrollView {
+                LazyVStack(spacing: 18) {
+                    ForEach(posts) { post in
+                        CloudPostCard(post: post) { commentTarget = $0 }
+                            .riseIn()
+                    }
+                    if posts.isEmpty {
+                        Text(L("この地域の投稿は、まだありません"))
+                            .font(.subheadline.weight(.bold)).foregroundStyle(Hi.dim)
+                            .frame(maxWidth: .infinity).padding(.top, 40)
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+        }
+        .background(Color.black.ignoresSafeArea())
+        .preferredColorScheme(.dark)
+        .fullScreenCover(item: $commentTarget) { target in
+            CommentSheet(postID: target.id, owner: target.owner, caption: target.caption,
+                         image: target.image, front: target.front, prompt: target.prompt, cloudID: target.cloudID, ownRecordID: target.ownRecordID)
+                .environmentObject(store)
+        }
     }
 }

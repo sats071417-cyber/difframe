@@ -210,6 +210,7 @@ struct CommentSheet: View {
     var owner: String = ""
     var caption: String? = nil
     var image: UIImage? = nil
+    var front: UIImage? = nil      // 内カメラの写真（左上に小さく出す）
     var prompt: String? = nil
     var cloudID: String? = nil
     /// 自分の投稿の記録（写真を大きく見る・一言を直す、のため）
@@ -224,6 +225,17 @@ struct CommentSheet: View {
     @State private var reported = false
     @State private var editingCaption = false
     @State private var viewing = false
+    @State private var expanded = false            // 写真を大きく広げているか
+    @State private var remote: CloudPost? = nil    // 他の人の投稿：時刻・場所・内カメラの写真を読んだもの
+    @State private var mapOpen = false
+    @State private var shareOpen = false
+    @State private var profileCode: CodeTarget? = nil
+    @State private var reactorsFor: EmojiTarget? = nil
+    @State private var postReportOpen = false
+    @State private var scrollY: CGFloat = 0        // コメントの一覧を、どれだけ下にスクロールしているか（0 = いちばん上）
+    @State private var dragDY: CGFloat = 0         // 指で、いま縦に動かしている量
+    @State private var dragAtTop: Bool? = nil      // 指を置いたとき、いちばん上だったか
+    @GestureState private var gestureActive = false
     @FocusState private var focused: Bool
 
     /// 画面に出す1件のコメント（返信の元は source で持つ）
@@ -257,12 +269,16 @@ struct CommentSheet: View {
         }
     }
 
-    var body: some View {
+    var body: some View { bodyContent.edgeSwipeBack() }
+
+    private var bodyContent: some View {
         NavigationStack {
             VStack(spacing: 0) {
+                topBar
                 ScrollViewReader { proxy in
                 ScrollView {
                     VStack(spacing: 14) {
+                        Color.clear.frame(height: 0).reportScroll(tag: 7, space: "commentScroll").id("top")
                         header
                         Divider().overlay(Hi.tile)
                         let list = rows
@@ -285,20 +301,57 @@ struct CommentSheet: View {
                     .padding(16)
                 }
                 .onAppear { scrollToFocus(proxy) }
+                .coordinateSpace(name: "commentScroll")
+                // 下に引くと、写真が広がって、そのまま。上に払うと、小さくなって、そのまま
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 10)
+                        .updating($gestureActive) { _, state, _ in state = true }
+                        .onChanged { v in
+                            if dragAtTop == nil { dragAtTop = scrollY <= 2 }
+                            dragDY = abs(v.translation.width) > abs(v.translation.height) ? 0 : v.translation.height
+                        }
+                        .onEnded { v in
+                            let dy = abs(v.translation.width) > abs(v.translation.height) ? 0 : v.translation.height
+                            let startedAtTop = dragAtTop ?? false
+                            var next = expanded
+                            if !expanded, startedAtTop, dy > 50 { next = true }
+                            if expanded, dy < -50 { next = false }
+                            let changed = next != expanded
+                            if changed { UISelectionFeedbackGenerator().selectionChanged() }
+                            withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+                                expanded = next
+                                dragDY = 0
+                                dragAtTop = nil
+                            }
+                            // 大きさが変わったときだけ、いちばん上へ戻す（普通のスクロールは、そのまま）
+                            if changed { withAnimation { proxy.scrollTo("top", anchor: .top) } }
+                        }
+                )
+                .onChange(of: gestureActive) { _, active in
+                    // 途中で取り消されたときも、元に戻す
+                    if !active, dragDY != 0 { withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) { dragDY = 0; dragAtTop = nil } }
                 }
-                if let replyTo {
-                    replyChip(replyTo)
+                // コメント欄は、内容の上に浮かせる（内容は、欄の後ろにも続く）
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    VStack(spacing: 0) {
+                        if let replyTo { replyChip(replyTo) }
+                        inputBar
+                    }
                 }
-                inputBar
+                // 止まっているときの位置は、上の余白（padding 16）の分だけ下がっている。それを引いた量が、引っぱった量
+                .onPreferenceChange(ScrollOffsetKey.self) { scrollY = -(($0[7] ?? 16) - 16) }
+                }
             }
-            .background(Color.black.ignoresSafeArea())
-            .navigationTitle(owner.isEmpty ? L("コメント") : owner)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(L("閉じる")) { dismiss() }
+            .background {
+                // 写真の色が、上のほうに、うっすら染みる
+                ZStack {
+                    Color.black
+                    LinearGradient(colors: [(shownImage.map { DominantColor.of($0, key: "c-" + (cloudID ?? postID)) } ?? .clear).opacity(0.32), .clear],
+                                   startPoint: .top, endPoint: UnitPoint(x: 0.5, y: 0.5))
                 }
+                .ignoresSafeArea()
             }
+            .toolbar(.hidden, for: .navigationBar)
         }
         .presentationDetents([.large])
         .presentationBackground(.black)
@@ -311,11 +364,27 @@ struct CommentSheet: View {
                 try? await Task.sleep(nanoseconds: 6_000_000_000)
             }
         }
-        .onAppear {
-            // 開いたら、すぐキーボードを出す（通知から開いたときは、そのコメントを見せるので出さない）
-            if focusID == nil {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { focused = true }
+        .task(id: cloudID) {
+            // 他の人の投稿：時刻・場所・内カメラの写真を読む（通知から開いたときは、写真もここで入る）
+            guard ownRecordID == nil, let cloudID else { return }
+            remote = await cloud.friendPost(cloudID)
+        }
+        .fullScreenCover(item: $profileCode) { PersonProfileSheet(code: $0.id) }
+        .fullScreenCover(isPresented: $shareOpen) {
+            if let remote { ShareToDMSheet(post: remote) }
+        }
+        .confirmationDialog(L("通報の理由"), isPresented: $postReportOpen, titleVisibility: .visible) {
+            ForEach([L("嫌がらせ・不快"), L("不適切な内容"), L("その他")], id: \.self) { reason in
+                Button(reason) {
+                    guard let uid = ownerUID, let cloudID else { return }
+                    reported = true
+                    Task { await cloud.sendReport(against: uid, postID: cloudID, reason: reason) }
+                }
             }
+            Button(L("キャンセル"), role: .cancel) {}
+        }
+        .fullScreenCover(isPresented: $mapOpen) {
+            LocationMapSheet(city: shownCity ?? "", latitude: remote?.latitude, longitude: remote?.longitude, photo: shownImage)
         }
         .confirmationDialog(L("通報の理由"), isPresented: Binding(get: { reportTarget != nil }, set: { if !$0 { reportTarget = nil } }), titleVisibility: .visible) {
             Button(L("嫌がらせ・不快")) { sendReport(L("嫌がらせ・不快")) }
@@ -326,7 +395,7 @@ struct CommentSheet: View {
         .alert(L("通報を受け付けました。ありがとうございます。"), isPresented: $reported) {
             Button("OK", role: .cancel) {}
         }
-        .sheet(isPresented: $editingCaption) {
+        .fullScreenCover(isPresented: $editingCaption) {
             if let ownRecordID {
                 CaptionEditSheet(recordID: ownRecordID)
                     .environmentObject(store)
@@ -340,61 +409,180 @@ struct CommentSheet: View {
         }
     }
 
-    private var header: some View {
-        VStack(spacing: 8) {
-            if ownRecordID != nil, let image {
-                // 自分の投稿：大きく見せる（押すと全画面で、指で拡大できる）
-                Button { viewing = true } label: {
-                    DualPhotoView(main: image, inset: ownFront)
-                        .frame(width: 220, height: 293)
-                        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                        .overlay(alignment: .bottomTrailing) {
-                            Image(systemName: "arrow.up.left.and.arrow.down.right")
-                                .font(.system(size: 12, weight: .black))
-                                .foregroundStyle(.white)
-                                .frame(width: 30, height: 30)
-                                .background(Circle().fill(Color.black.opacity(0.55)))
-                                .padding(8)
-                        }
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(L("写真を大きく見る"))
-                Button { editingCaption = true } label: {
-                    Label(L("一言を編集"), systemImage: "pencil")
-                }
-                .buttonStyle(TileButtonStyle())
-            } else {
+    // MARK: 投稿の表示（上の行・写真・一言・場所・リアクション）
+
+    /// 写真の大きさ：0（小さい）〜 1（画面の幅いっぱい）
+    private var photoProgress: CGFloat {
+        let live = (expanded || dragAtTop == true) ? dragDY : 0
+        return min(1, max(0, (expanded ? 1 : 0) + live / 200))
+    }
+
+    private var ownRecord: PromptRecord? { ownRecordID.flatMap { id in store.records.first { $0.id == id } } }
+    private var shownImage: UIImage? { image ?? remote?.photo }
+    private var shownFront: UIImage? { ownRecordID != nil ? ownFront : (front ?? remote?.front) }
+    private var shownCity: String? { ownRecordID != nil ? ownRecord?.city : remote?.city }
+    private var shownElapsed: Double? { ownRecordID != nil ? ownRecord?.elapsed : remote?.elapsed }
+    private var shownTime: Date? { ownRecordID != nil ? ownRecord?.postedAt : remote?.postedAt }
+    /// 投稿した人の友達コード（友達一覧のものが最新。なければ、投稿に付いているもの）
+    private var ownerCode: String? {
+        guard ownRecordID == nil, let uid = ownerUID else { return nil }
+        let fromFriends = cloud.friends.first { $0.uid == uid }?.code
+        if let c = fromFriends, !c.isEmpty { return c }
+        return remote?.code.isEmpty == false ? remote?.code : nil
+    }
+
+    private var ownerUID: String? { ownRecordID != nil ? cloud.uid : cloudID?.split(separator: "_").first.map(String.init) }
+
+    private func relative(_ date: Date) -> String {
+        let f = RelativeDateTimeFormatter()
+        f.locale = Locale(identifier: AppLanguage.current.rawValue)
+        f.unitsStyle = .short
+        return f.localizedString(for: date, relativeTo: Date())
+    }
+
+    /// 上の行：戻る、投稿した人のアイコンと名前、何分前か
+    private var topBar: some View {
+        HStack(spacing: 10) {
+            Button { dismiss() } label: {
+                Image(systemName: "chevron.left").font(.system(size: 16, weight: .bold))
+                    .frame(width: 38, height: 38).background(Circle().fill(Hi.tile))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(L("戻る"))
+            // アイコンと名前を押すと、その人のプロフィール（全画面）。場所は別のボタン（自分の投稿でも押せるように）
+            Button {
+                if let code = ownerCode { profileCode = CodeTarget(id: code) }
+            } label: {
                 Group {
-                    if let image {
-                        Image(uiImage: image).resizable().scaledToFill()
-                    } else if let prompt {
-                        PromptArtView(prompt: prompt)
+                    if ownRecordID != nil, let avatar = Avatar.load() {
+                        Image(uiImage: avatar).resizable().scaledToFill().frame(width: 32, height: 32).clipShape(Circle())
                     } else {
-                        Hi.tile
+                        PersonAvatar(uid: ownerUID ?? "", name: owner.isEmpty ? "?" : owner, size: 32)
                     }
                 }
-                .frame(width: 96, height: 128)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
-            if let c = currentCaption, !c.isEmpty {
-                Text(c).font(.subheadline.weight(.semibold))
+            .buttonStyle(.plain)
+            .allowsHitTesting(ownRecordID == nil && ownerCode != nil)
+            VStack(alignment: .leading, spacing: 1) {
+                Button {
+                    if let code = ownerCode { profileCode = CodeTarget(id: code) }
+                } label: {
+                    Text(owner.isEmpty ? L("コメント") : owner).font(.subheadline.weight(.black)).lineLimit(1)
+                }
+                .buttonStyle(.plain)
+                .allowsHitTesting(ownRecordID == nil && ownerCode != nil)
+                HStack(spacing: 6) {
+                    if let time = shownTime { Text(relative(time)).foregroundStyle(Hi.dim).layoutPriority(1) }
+                    if let city = shownCity, !city.isEmpty {
+                        // 場所：「何分前」の横に、同じ大きさの黄色い文字で（押すと、大まかな地図）
+                        Button { mapOpen = true } label: {
+                            Label(city, systemImage: "location.fill")
+                                .imageScale(.small).foregroundStyle(Hi.neon).fontWeight(.semibold)
+                                .lineLimit(1).truncationMode(.tail)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .font(.caption2)
             }
-            // リアクション（ここでも選べる）
+            Spacer(minLength: 0)
+            // 右：送る（友達のDMへ）と、その他のメニュー
+            HStack(spacing: 4) {
+                if ownRecordID == nil {
+                    Button { shareOpen = true } label: {
+                        Image(systemName: "paperplane.fill").font(.system(size: 16, weight: .bold))
+                            .frame(width: 40, height: 38)
+                    }
+                    .disabled(remote?.photo == nil)
+                    .accessibilityLabel(L("DMで送る"))
+                }
+                Menu {
+                    if ownRecordID != nil {
+                        Button { editingCaption = true } label: { Label(L("一言を編集"), systemImage: "pencil") }
+                    } else if let uid = ownerUID, uid != cloud.uid {
+                        Button { postReportOpen = true } label: { Label(L("通報"), systemImage: "flag") }
+                        Button(role: .destructive) {
+                            Task { await cloud.block(uid); dismiss() }
+                        } label: { Label(L("ブロック"), systemImage: "hand.raised") }
+                    }
+                } label: {
+                    Image(systemName: "ellipsis").font(.system(size: 16, weight: .bold))
+                        .frame(width: 40, height: 38)
+                }
+                .accessibilityLabel(L("その他"))
+            }
+            .foregroundStyle(.white)
+            .background(Capsule().fill(Color.white.opacity(0.14)))
+        }
+        .padding(.horizontal, 16).padding(.top, 12).padding(.bottom, 8)
+    }
+
+    private var header: some View {
+        VStack(spacing: 8) {
+            // その日のタイム（通知が届いてから投稿するまで）。写真の上に、黄色い文字で
+            if let elapsed = shownElapsed {
+                Label(TimeFormat.string(elapsed), systemImage: "timer")
+                    .font(.caption.weight(.black).monospacedDigit()).foregroundStyle(Hi.neon)
+                    .padding(.horizontal, 10).padding(.vertical, 4)
+                    .background(Capsule().fill(Hi.neon.opacity(0.15)))
+                    .accessibilityLabel(LF("タイム {t}", ["t": TimeFormat.string(elapsed)]))
+            }
+            // 写真：小さく出して、押すと、その場で大きく広がる
+            Group {
+                if let img = shownImage {
+                    DualPhotoView(main: img, inset: shownFront)
+                } else if let prompt {
+                    PromptArtView(prompt: prompt)
+                } else {
+                    Hi.tile
+                }
+            }
+            .aspectRatio(PhotoShape.ratio, contentMode: .fit)
+            // 下に引くほど、少しずつ大きくなる（離すと戻る）。押すと、大きいまま
+            .frame(width: 115 + (UIScreen.main.bounds.width - 16 - 115) * photoProgress)
+            .clipShape(RoundedRectangle(cornerRadius: 12 + 10 * photoProgress, style: .continuous))
+            .onTapGesture {
+                UISelectionFeedbackGenerator().selectionChanged()
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) { expanded.toggle() }
+            }
+            .accessibilityAddTraits(.isButton)
+            .accessibilityLabel(L("写真を大きく見る"))
+
+            // 一言：自分の投稿は、押して直せる
+            if ownRecordID != nil {
+                Button { editingCaption = true } label: {
+                    let c = currentCaption ?? ""
+                    Text(c.isEmpty ? L("ひとことを追加…") : c)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white.opacity(c.isEmpty ? 0.85 : 1))
+                        .multilineTextAlignment(.center)
+                }
+                .buttonStyle(.plain)
+            } else if let c = currentCaption, !c.isEmpty {
+                Text(c).font(.subheadline.weight(.semibold)).multilineTextAlignment(.center)
+            }
+
+            reactionsRow
+
+            // 絵文字で、リアクションする（自分の投稿には、しない）
+            if ownRecordID == nil {
             HStack(spacing: 6) {
                 ForEach(Reactions.all, id: \.self) { emoji in
                     let chosen = store.reactions[postID] == emoji
                     Button {
+                        UISelectionFeedbackGenerator().selectionChanged()
                         store.toggleReaction(postID: postID, emoji: emoji)
+                        if cloudID != nil { CloudSync.shared.notifyReaction(postID: cloudID ?? postID, emoji: emoji) }
                     } label: {
-                        Text(emoji).font(.title3)
-                            .frame(width: 40, height: 40)
+                        Text(emoji).font(.body)
+                            .frame(width: 36, height: 36)
                             .background(Circle().fill(chosen ? Hi.neon.opacity(0.9) : Hi.tile))
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(emoji)
                 }
             }
-            likersList
+            }
         }
         .frame(maxWidth: .infinity)
     }
@@ -413,30 +601,89 @@ struct CommentSheet: View {
         return cloud.notices.filter { $0.type == "like" && $0.postID == serverID && !cloud.blocked.contains($0.fromUID) }
     }
 
+    /// 絵文字ごとの、リアクションした人（同じ人は、いちばん新しい1件だけ。自分の投稿だけ）
+    private var reactionGroups: [(emoji: String, people: [CloudNotice])] {
+        guard ownRecordID != nil else { return [] }
+        let latest = Dictionary(grouping: likers, by: \.fromUID).compactMap { $0.value.max { $0.date < $1.date } }
+        let groups = Dictionary(grouping: latest, by: \.text)
+        let order = Reactions.all + groups.keys.filter { !Reactions.all.contains($0) }.sorted()
+        return order.compactMap { e in groups[e].map { (emoji: e, people: $0.sorted { $0.date > $1.date }) } }
+    }
+
+    /// リアクション：絵文字ごとに人数を出す。押すと、その絵文字をつけた人の一覧が開く
     @ViewBuilder
-    private var likersList: some View {
-        if ownRecordID != nil {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Text(L("リアクション")).font(.caption.weight(.black))
-                    Spacer()
-                    Text("\(likers.count)").font(.caption.weight(.black)).foregroundStyle(Hi.neon)
-                }
-                ForEach(likers) { liker in
-                    HStack(spacing: 8) {
-                        Text(liker.text).font(.subheadline)
-                        Text(liker.fromName.isEmpty ? liker.fromCode : liker.fromName)
-                            .font(.subheadline)
-                            .lineLimit(1)
-                        Spacer(minLength: 0)
+    private var reactionsRow: some View {
+        let groups = reactionGroups
+        if !groups.isEmpty {
+            HStack(spacing: 8) {
+                ForEach(groups, id: \.emoji) { group in
+                    Button {
+                        UISelectionFeedbackGenerator().selectionChanged()
+                        reactorsFor = EmojiTarget(id: group.emoji)
+                    } label: {
+                        HStack(spacing: 6) {
+                            Text(group.emoji).font(.title3)
+                            Text("\(group.people.count)").font(.subheadline.weight(.black))
+                        }
+                        .padding(.horizontal, 14).frame(height: 40)
+                        .background(Capsule().fill(Color.white.opacity(0.12)))
+                        .overlay(Capsule().stroke(Color.white.opacity(0.12), lineWidth: 1))
                     }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(group.emoji) \(group.people.count)")
+                    .accessibilityHint(L("リアクションした人を見る"))
                 }
             }
-            .padding(.top, 6)
-            .frame(maxWidth: 260, alignment: .leading)
+            .padding(.top, 2)
+            // 下から出る一覧（ここだけは、シート）
+            .sheet(item: $reactorsFor) { target in
+                reactorsSheet(emoji: target.id)
+            }
         }
     }
 
+    /// 1つの絵文字をつけた人の一覧（名前と、何分前か）
+    private func reactorsSheet(emoji: String) -> some View {
+        let people = reactionGroups.first { $0.emoji == emoji }?.people ?? []
+        return VStack(spacing: 0) {
+            HStack(spacing: 10) {
+                Text(emoji).font(.system(size: 38))
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("\(people.count)").font(.title2.weight(.black).monospacedDigit())
+                    Text(L("リアクション")).font(.caption).foregroundStyle(Hi.dim)
+                }
+                Spacer()
+                Button { reactorsFor = nil } label: {
+                    Image(systemName: "xmark").font(.subheadline.weight(.bold)).foregroundStyle(.white)
+                        .frame(width: 36, height: 36).background(Circle().fill(Hi.tile))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L("閉じる"))
+            }
+            .padding(.horizontal, 20).padding(.top, 22).padding(.bottom, 14)
+            ScrollView {
+                VStack(spacing: 0) {
+                    ForEach(Array(people.enumerated()), id: \.element.id) { index, person in
+                        HStack {
+                            Text(person.fromName.isEmpty ? person.fromCode : person.fromName)
+                                .font(.body.weight(.semibold)).lineLimit(1)
+                            Spacer()
+                            Text(relative(person.date)).font(.caption).foregroundStyle(Hi.dim)
+                        }
+                        .padding(.horizontal, 20).padding(.vertical, 14)
+                        if index < people.count - 1 { Divider().overlay(Color.white.opacity(0.08)).padding(.leading, 20) }
+                    }
+                }
+                .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Hi.tile))
+                .padding(.horizontal, 16)
+            }
+        }
+        .background(Color.black.ignoresSafeArea())
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+        .presentationBackground(.black)
+        .preferredColorScheme(.dark)
+    }
 
     private func commentRow(_ comment: Row) -> some View {
         HStack(alignment: .top, spacing: 10) {
@@ -468,6 +715,7 @@ struct CommentSheet: View {
                     .background(Capsule().fill(Hi.tile))
                 }
                 Text(comment.text).font(.subheadline)
+                TranslateLine(text: comment.text)
                 if cloudID != nil, comment.source != nil {
                     Button(L("返信")) {
                         replyTo = comment
@@ -530,15 +778,15 @@ struct CommentSheet: View {
                 .focused($focused)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
-                .background(Capsule().fill(Hi.tile))
+                .background(Capsule().fill(Color.white.opacity(0.12)))
                 .submitLabel(.send)
                 .onSubmit(send)
             Button(action: send) {
                 Image(systemName: "arrow.up")
                     .font(.headline.weight(.black))
-                    .foregroundStyle(empty ? Hi.dim : Hi.onNeon)
+                    .foregroundStyle(empty ? Color.white.opacity(0.5) : Hi.onNeon)
                     .frame(width: 42, height: 42)
-                    .background(Circle().fill(empty ? Hi.tile : Hi.neon))
+                    .background(Circle().fill(empty ? Color.white.opacity(0.12) : Hi.neon))
             }
             .buttonStyle(.plain)
             .disabled(empty)
@@ -546,7 +794,7 @@ struct CommentSheet: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
-        .background(Color.black)
+        .background(LinearGradient(colors: [.clear, .black.opacity(0.85)], startPoint: .top, endPoint: .bottom))
     }
 
     /// 通報の理由を選んだら、記録を送る
@@ -587,11 +835,15 @@ struct CommentSheet: View {
 }
 
 /// コメント画面を開く相手の投稿
+/// リアクションした人の一覧を開く、絵文字の目印
+struct EmojiTarget: Identifiable { let id: String }
+
 struct CommentTarget: Identifiable {
     let id: String
     var owner: String = ""
     var caption: String? = nil
     var image: UIImage? = nil
+    var front: UIImage? = nil
     var prompt: String? = nil
     var cloudID: String? = nil
     /// 自分の投稿の記録（写真を大きく見る・一言を直す、のため）

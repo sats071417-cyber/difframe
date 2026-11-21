@@ -6,6 +6,8 @@ const http2 = require('http2');
 const BUNDLE_ID = 'com.diffframe.app';
 
 // 通知の文面（アプリの画面の文と同じ）
+const RANKS = {"ja": ["ブロンズ", "シルバー", "ゴールド", "プラチナ", "ダイヤ", "マスター", "グランドマスター", "レジェンド"], "en": ["Bronze", "Silver", "Gold", "Platinum", "Diamond", "Master", "Grandmaster", "Legend"], "zh": ["青铜", "白银", "黄金", "铂金", "钻石", "大师", "宗师", "传奇"], "ko": ["브론즈", "실버", "골드", "플래티넘", "다이아", "마스터", "그랜드마스터", "레전드"], "es": ["Bronce", "Plata", "Oro", "Platino", "Diamante", "Maestro", "Gran maestro", "Leyenda"], "fr": ["Bronze", "Argent", "Or", "Platine", "Diamant", "Maître", "Grand maître", "Légende"]};
+
 const TEXT = {
   ja: {
     friendRequest: n => `${n} さんから友達リクエストが届きました`,
@@ -14,6 +16,7 @@ const TEXT = {
     friendPost: n => `${n} さんが投稿しました`,
     like: n => `${n} さんがリアクションしました`,
     message: n => `${n} さんからメッセージ`,
+    rankUp: (n, r) => `${n} さんが${r}にランクアップしました`,
   },
   en: {
     friendRequest: n => `${n} sent you a friend request`,
@@ -22,6 +25,7 @@ const TEXT = {
     friendPost: n => `${n} posted`,
     like: n => `${n} reacted to your post`,
     message: n => `Message from ${n}`,
+    rankUp: (n, r) => `${n} ranked up to ${r}`,
   },
   zh: {
     friendRequest: n => `${n} 向你发送了好友请求`,
@@ -30,6 +34,7 @@ const TEXT = {
     friendPost: n => `${n} 发布了新照片`,
     like: n => `${n} 对你的投稿做出了回应`,
     message: n => `来自 ${n} 的消息`,
+    rankUp: (n, r) => `${n} 升到了${r}`,
   },
   ko: {
     friendRequest: n => `${n}님이 친구 요청을 보냈어요`,
@@ -38,6 +43,7 @@ const TEXT = {
     friendPost: n => `${n}님이 게시했어요`,
     like: n => `${n}님이 반응을 남겼어요`,
     message: n => `${n}님의 메시지`,
+    rankUp: (n, r) => `${n}님이 ${r}(으)로 랭크 업했어요`,
   },
   es: {
     friendRequest: n => `${n} te envió una solicitud de amistad`,
@@ -46,6 +52,16 @@ const TEXT = {
     friendPost: n => `${n} publicó`,
     like: n => `${n} reaccionó a tu publicación`,
     message: n => `Mensaje de ${n}`,
+    rankUp: (n, r) => `${n} subió a ${r}`,
+  },
+  fr: {
+    friendRequest: n => `${n} t'a envoyé une demande d'ami`,
+    friendAccepted: n => `Toi et ${n} êtes maintenant amis`,
+    comment: n => `${n} a commenté`,
+    friendPost: n => `${n} a publié`,
+    like: n => `${n} a réagi à ta publication`,
+    message: n => `Message de ${n}`,
+    rankUp: (n, r) => `${n} a atteint le rang ${r}`,
   },
 };
 
@@ -57,6 +73,12 @@ function buildAlert(notice, lang) {
   if (!make) return null;
   const who = (notice.fromName || notice.fromCode || '').toString().slice(0, 60) || 'Difframe';
   // 中身（DM・コメントの文）は、ロック画面に出さない。誰からかだけを伝えて、アプリを開いて読んでもらう
+  if (type === 'rankUp') {
+    const list = RANKS[lang] || RANKS.en;
+    const rank = list[parseInt(notice.text, 10)];
+    if (!rank) return null;
+    return { title: 'Difframe', body: make(who, rank) };
+  }
   return { title: 'Difframe', body: make(who) };
 }
 

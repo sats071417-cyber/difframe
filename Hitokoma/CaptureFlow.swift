@@ -539,6 +539,7 @@ struct CaptureFlow: View {
                 circleButton("person.crop.square.fill",
                              label: dualCamera ? L("両方のカメラで撮る：オン") : L("両方のカメラで撮る：オフ"),
                              tint: dualCamera ? Hi.neon : Hi.dim) {
+                    UISelectionFeedbackGenerator().selectionChanged()
                     dualCamera.toggle()
                 }
                 .opacity(isShootingFront || camera.isCapturing ? 0.35 : 1)
@@ -667,6 +668,7 @@ struct CaptureFlow: View {
 
     private var shutter: some View {
         Button {
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()   // シャッター
             startSequence()
         } label: {
             ZStack {
@@ -838,6 +840,7 @@ struct CaptureFlow: View {
                 .background(Hi.tile)
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .padding(.horizontal, 16)
+            CaptionSuggestion(image: photo, caption: $caption)
 
             Spacer(minLength: 0)
 
@@ -854,7 +857,7 @@ struct CaptureFlow: View {
             }
             .buttonStyle(NeonButtonStyle())
             .disabled(checking)
-            .sheet(isPresented: $showShare) {
+            .fullScreenCover(isPresented: $showShare) {
                 ShareOptionsSheet(sendFriends: $sendFriends, sendPublic: $sendPublic,
                                   publicComments: $publicComments, addLocation: $addLocation,
                                   locator: locator) {
@@ -1088,12 +1091,23 @@ struct ShareOptionsSheet: View {
     @Binding var addLocation: Bool
     @ObservedObject var locator: CityLocator
     let onSend: () -> Void
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(L("どこに送る？"))
-                .font(.title2.weight(.black))
-                .padding(.top, 24)
+            HStack(alignment: .top) {
+                Text(L("どこに送る？"))
+                    .font(.title2.weight(.black))
+                Spacer()
+                // 全画面で開くので、閉じるボタンが要る
+                Button { dismiss() } label: {
+                    Image(systemName: "xmark").font(.subheadline.weight(.bold)).foregroundStyle(.white)
+                        .frame(width: 36, height: 36).background(Circle().fill(Hi.tile))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L("閉じる"))
+            }
+            .padding(.top, 24)
             Text(L("両方を選ぶこともできます"))
                 .font(.footnote).foregroundStyle(Hi.dim)
 

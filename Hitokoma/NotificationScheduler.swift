@@ -81,10 +81,30 @@ enum NotificationScheduler {
 
             let content = UNMutableNotificationContent()
             content.title = L("Difframe")
-            content.body = L("今日のお題が届きました。")
+            content.body = LF("今日のお題は「{p}」です。急いで投稿しよう！", ["p": L(PostStore.worldwidePrompt(for: day))])
             let trigger = UNTimeIntervalNotificationTrigger(timeInterval: wait, repeats: false)
             center.add(UNNotificationRequest(identifier: "morning-\(offset)", content: content, trigger: trigger))
+
+            // 届く30分前の予告（ダイナミックアイランドと同じ時刻）
+            let headsUpWait = wait - 30 * 60
+            if headsUpWait > 1 {
+                let early = UNMutableNotificationContent()
+                early.title = L("Difframe")
+                early.body = L("あと30分でお題が届きます。")
+                center.add(UNNotificationRequest(identifier: "headsup-\(offset)", content: early,
+                                                 trigger: UNTimeIntervalNotificationTrigger(timeInterval: headsUpWait, repeats: false)))
+            }
         }
+
+        // 毎朝8時（端末の時刻）：「今日の10枚」が届いたお知らせ。毎日くり返す
+        let pickup = UNMutableNotificationContent()
+        pickup.title = L("Difframe")
+        pickup.body = L("今日の10枚が届きました。")
+        var eight = DateComponents()
+        eight.hour = 8
+        eight.minute = 0
+        center.add(UNNotificationRequest(identifier: "pickup", content: pickup,
+                                         trigger: UNCalendarNotificationTrigger(dateMatching: eight, repeats: true)))
     }
 }
 
@@ -112,6 +132,11 @@ final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
                                 didReceive response: UNNotificationResponse,
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
         recordArrival(response.notification)
+        if response.notification.request.identifier == "pickup" {
+            Task { @MainActor in PushRouter.shared.route = .pickup }
+            completionHandler()
+            return
+        }
         // サーバーからの通知なら、開く先を伝える（文字は取り出して渡す）
         let info = response.notification.request.content.userInfo
         let type = info["type"] as? String ?? ""

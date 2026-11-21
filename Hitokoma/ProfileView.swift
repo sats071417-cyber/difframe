@@ -95,10 +95,10 @@ struct ProfileView: View {
         }
         }
         .background(Color.black.ignoresSafeArea())
-        .sheet(isPresented: $showSettings) {
+        .fullScreenCover(isPresented: $showSettings) {
             SettingsView()
         }
-        .sheet(isPresented: $editingHandle) {
+        .fullScreenCover(isPresented: $editingHandle) {
             HandleEditSheet(current: currentHandle) { newHandle in
                 myHandle = newHandle
             }
@@ -107,7 +107,10 @@ struct ProfileView: View {
             TextField(L("名前"), text: $draftName)
             Button(L("保存")) {
                 let trimmed = draftName.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !trimmed.isEmpty { myName = trimmed }
+                if !trimmed.isEmpty {
+                    myName = trimmed
+                    Task { await CloudSync.shared.refresh(force: true) }   // 友達の画面にも、すぐ反映する
+                }
             }
             Button(L("キャンセル"), role: .cancel) {}
         }
@@ -228,8 +231,8 @@ struct ProfileView: View {
                 .accessibilityLabel(L("友達追加カード"))
             }
             .fixedSize(horizontal: false, vertical: true)
-            .sheet(isPresented: $showFriends) { FriendListSheet() }
-            .sheet(isPresented: $showInvite) { FriendInviteSheet() }
+            .fullScreenCover(isPresented: $showFriends) { FriendListSheet() }
+            .fullScreenCover(isPresented: $showInvite) { FriendInviteSheet() }
         }
     }
 
@@ -362,7 +365,6 @@ struct ProfileView: View {
 
     private var statTiles: some View {
         let best = TimeAttackStats(records: store.records).best
-        let position = WorldRanking.position(myBest: best)
         return HStack(spacing: 8) {
             statTile(L("連続"), LF("{n}日", ["n": "\(store.currentStreak())"]))
             // 投稿を押すと、カレンダーに飛ぶ（投稿した日を見られる）
@@ -374,7 +376,6 @@ struct ProfileView: View {
             }
             .buttonStyle(.plain)
             statTile(L("自己ベスト"), best.map { TimeFormat.string($0) } ?? "--")
-            statTile(L("地域"), position.map { LF("{n}位", ["n": "\($0)"]) } ?? "--")
         }
     }
 
@@ -387,49 +388,26 @@ struct ProfileView: View {
         .hiTile(cornerRadius: 18)
     }
 
-    /// トロフィー：獲得済みは光らせ、未獲得は暗く
+    /// トロフィー：同じ系統は1マスにまとめる。獲得した段階は光らせ、次の目標を下に出す
     private var trophiesCard: some View {
         let input = achievementInput
-        let unlocked = Trophy.allCases.filter { $0.isUnlocked(input) }.count
+        let earned = Set(Trophy.allCases.filter { $0.isUnlocked(input) })
         return VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text(L("トロフィー")).font(.title3.weight(.black)).foregroundStyle(.white)
                 Spacer()
-                Text("\(unlocked) / \(Trophy.allCases.count)")
+                Text("\(earned.count) / \(Trophy.allCases.count)")
                     .font(.subheadline.weight(.bold))
                     .foregroundStyle(Hi.dim)
             }
             LazyVGrid(columns: columns, spacing: 6) {
-                ForEach(Trophy.allCases) { trophy in
-                    trophyCell(trophy, unlocked: trophy.isUnlocked(input))
+                ForEach(TrophyFamily.all) { family in
+                    TrophyFamilyCell(family: family, earned: earned)
+                        .background(Hi.tile)
+                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 }
             }
         }
-    }
-
-    private func trophyCell(_ trophy: Trophy, unlocked: Bool) -> some View {
-        VStack(spacing: 6) {
-            Image(systemName: trophy.icon)
-                .font(.title2)
-                .foregroundStyle(unlocked ? Hi.neon : Hi.dim.opacity(0.35))
-                .frame(height: 30)
-            Text(trophy.title)
-                .font(.caption.weight(.black))
-                .foregroundStyle(unlocked ? .white : Hi.dim)
-                .multilineTextAlignment(.center)
-            Text(trophy.detail)
-                .font(.system(size: 11))
-                .foregroundStyle(Hi.dim)
-                .multilineTextAlignment(.center)
-                .lineLimit(3)
-        }
-        .frame(maxWidth: .infinity, minHeight: 118, alignment: .top)
-        .padding(.vertical, 10)
-        .padding(.horizontal, 6)
-        .background(Hi.tile)
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .accessibilityElement(children: .combine)
-        .accessibilityValue(unlocked ? L("獲得済み") : L("未獲得"))
     }
 
     /// 自分の投稿：一列で、左右にスワイプして過去に戻れる。「広げる」で全部を一覧に
@@ -456,10 +434,12 @@ struct ProfileView: View {
                         ForEach(myPosts) { record in
                             postCell(record)
                                 .frame(width: 150, height: 150)
+                                .riseIn()
                         }
                     }
                     .scrollTargetLayout()
                 }
+                .blocksTabSwipe(.profile, id: "row")
                 .scrollTargetBehavior(.viewAligned)
                 .scrollClipDisabled()
             }
@@ -469,7 +449,7 @@ struct ProfileView: View {
             PhotoViewer(startID: viewerID ?? "")
                 .environmentObject(store)
         }
-        .sheet(isPresented: $showAllPosts) {
+        .fullScreenCover(isPresented: $showAllPosts) {
             AllPostsSheet().environmentObject(store)
         }
     }
@@ -538,7 +518,7 @@ struct ProfileView: View {
 
 /// 自分のプロフィールの共通の計算
 enum MyProfile {
-    static let defaultFriends = "Kanta,motohiro,Alex,Sam,Mina,Lucas"
+    static let defaultFriends = ""
 
     /// ハンドル名（未設定のときは、友達コードから作った仮の名前）
     static func handle(_ stored: String) -> String {
@@ -613,7 +593,7 @@ struct PhotoViewer: View {
     }
 
     var body: some View {
-        ZStack(alignment: .topTrailing) {
+        ZStack(alignment: .topLeading) {
             Color.black.ignoresSafeArea()
             TabView(selection: $page) {
                 ForEach(records) { record in
@@ -622,13 +602,13 @@ struct PhotoViewer: View {
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             Button { dismiss() } label: {
-                Image(systemName: "xmark")
+                Image(systemName: "chevron.left")
                     .font(.headline)
                     .foregroundStyle(.white)
                     .frame(width: 44, height: 44)
                     .background(Circle().fill(Color.white.opacity(0.15)))
             }
-            .accessibilityLabel(L("閉じる"))
+            .accessibilityLabel(L("戻る"))
             .padding(16)
         }
         .overlay(alignment: .topLeading) {
@@ -854,6 +834,7 @@ struct AllPostsSheet: View {
                                     .overlay(Image(uiImage: image).resizable().scaledToFill())
                                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                             }
+                            .riseIn()
                             .buttonStyle(.plain)
                         }
                     }

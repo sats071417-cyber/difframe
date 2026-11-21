@@ -75,7 +75,7 @@ final class PushRegistration {
 
 extension CloudSync {
     /// プッシュ通知の種類（アプリの通知設定で、ミュートできるもの）
-    static let pushTypes = ["friendRequest", "friendAccepted", "comment", "like", "message", "friendPost"]
+    static let pushTypes = ["friendRequest", "friendAccepted", "comment", "like", "message", "friendPost", "rankUp"]
 
     /// 自分の端末の情報を、サーバーに預ける（自分だけが読み書きできる）。成功したら true
     func registerDevice(token: String, env: String, lang: String, muted: [String]) async -> Bool {

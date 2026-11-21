@@ -64,7 +64,7 @@ struct AddFriendSheet: View {
                         }
                     }
                 } else {
-                Section(L("いまの友達（サンプルを含む）")) {
+                Section(L("いまの友達")) {
                     if friends.isEmpty {
                         Text(L("まだ友達がいません")).foregroundStyle(.secondary)
                     }
@@ -81,14 +81,23 @@ struct AddFriendSheet: View {
                     Button(L("閉じる")) { isPresented = false }
                 }
             }
-            .sheet(isPresented: $showScanner) {
-                QRScannerView { value in
-                    showScanner = false
-                    open(from: value, delay: 0.5)
+            .fullScreenCover(isPresented: $showScanner) {
+                ZStack(alignment: .topLeading) {
+                    QRScannerView { value in
+                        showScanner = false
+                        open(from: value, delay: 0.5)
+                    }
+                    .ignoresSafeArea()
+                    // 全画面で開くので、閉じるボタンが要る
+                    Button { showScanner = false } label: {
+                        Image(systemName: "chevron.left").font(.headline).foregroundStyle(.white)
+                            .frame(width: 44, height: 44).background(Circle().fill(Color.black.opacity(0.55)))
+                    }
+                    .padding(16)
+                    .accessibilityLabel(L("戻る"))
                 }
-                .ignoresSafeArea()
             }
-            .sheet(item: $viewing) { target in
+            .fullScreenCover(item: $viewing) { target in
                 PersonProfileSheet(code: target.id, canAdd: true)
             }
         }
@@ -119,6 +128,8 @@ struct CodeTarget: Identifiable {
 }
 
 /// 友達コードの持ち主のプロフィール。ここから友達に追加する（QR・リンク・IDを読み取ると、まずここに来る）
+struct CalendarTarget: Identifiable { let id: String; let name: String }
+
 struct PersonProfileSheet: View {
     let code: String
     /// 追加できるのは、QRコードかリンクから開いたときだけ（ユーザー名から開いたときは追加しない）
@@ -131,6 +142,7 @@ struct PersonProfileSheet: View {
     @State private var phase: Phase = .loading
     @State private var working = false
     @State private var chatFriend: CloudFriend? = nil
+    @State private var calendarTarget: CalendarTarget? = nil
     @State private var showReport = false
     @State private var reported = false
 
@@ -146,7 +158,9 @@ struct PersonProfileSheet: View {
         return friendList.split(separator: ",").map(String.init).contains(code)
     }
 
-    var body: some View {
+    var body: some View { bodyContent.edgeSwipeBack() }
+
+    private var bodyContent: some View {
         NavigationStack {
             ScrollView {
             VStack(spacing: 14) {
@@ -193,14 +207,15 @@ struct PersonProfileSheet: View {
                         .accessibilityLabel(L("その他"))
                     }
                 }
-                ToolbarItem(placement: .confirmationAction) { Button(L("閉じる")) { dismiss() } }
+                ToolbarItem(placement: .topBarLeading) { Button { dismiss() } label: { Image(systemName: "chevron.left").font(.system(size: 16, weight: .bold)) }.accessibilityLabel(L("戻る")) }
             }
         }
         .presentationDetents([.medium, .large])
         .presentationBackground(.black)
         .preferredColorScheme(.dark)
         .task { await load() }
-        .sheet(item: $chatFriend) { ChatView(friend: $0) }
+        .fullScreenCover(item: $chatFriend) { ChatView(friend: $0) }
+        .fullScreenCover(item: $calendarTarget) { FriendCalendarSheet(uid: $0.id, name: $0.name).environmentObject(PostStore.shared) }
         .alert(L("通報を受け付けました。ありがとうございます。"), isPresented: $reported) {
             Button("OK", role: .cancel) {}
         }
@@ -220,14 +235,33 @@ struct PersonProfileSheet: View {
         VStack(spacing: 14) {
             HStack(spacing: 8) {
                 statTile(L("連続"), p.streak.map { LF("{n}日", ["n": "\($0)"]) } ?? "--")
-                statTile(L("投稿"), p.posts.map { LF("{n}枚", ["n": "\($0)"]) } ?? "--")
+                postsTile(p)
                 statTile(L("自己ベスト"), p.best.map { TimeFormat.string($0) } ?? "--")
-                statTile(L("地域"), p.region.map { LF("{n}位", ["n": "\($0)"]) } ?? "--")
-            }
-            if let rank = p.rank.flatMap(Rank.init(rawValue:)) {
-                rankCard(rank, points: p.points)
             }
             trophyCard(Set(p.trophies.compactMap(Trophy.init(key:))))
+        }
+    }
+
+    /// 「投稿」の数字：いまの友達なら、押すと、その人のカレンダーが開く
+    @ViewBuilder
+    private func postsTile(_ p: CloudProfile) -> some View {
+        let value = p.posts.map { LF("{n}枚", ["n": "\($0)"]) } ?? "--"
+        if cloud.isOn, !isMe, isFriend(p), !cloud.blocked.contains(p.uid) {
+            Button {
+                UISelectionFeedbackGenerator().selectionChanged()
+                calendarTarget = CalendarTarget(id: p.uid, name: p.name)
+            } label: {
+                statTile(L("投稿"), value)
+                    .overlay(alignment: .topTrailing) {
+                        Image(systemName: "calendar").font(.caption2.weight(.bold)).foregroundStyle(Hi.dim).padding(10)
+                    }
+                    .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityHint(L("カレンダーを見る"))
+        } else {
+            statTile(L("投稿"), value)
         }
     }
 
@@ -266,40 +300,81 @@ struct PersonProfileSheet: View {
                     .font(.subheadline.weight(.bold)).foregroundStyle(Hi.dim)
             }
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 3), spacing: 6) {
-                ForEach(Trophy.allCases) { trophy in
-                    let on = earned.contains(trophy)
-                    VStack(spacing: 5) {
-                        Image(systemName: trophy.icon)
-                            .font(.title3)
-                            .foregroundStyle(on ? Hi.neon : Hi.dim.opacity(0.35))
-                        Text(trophy.title)
-                            .font(.caption2.weight(.black))
-                            .foregroundStyle(on ? .white : Hi.dim)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 64)
-                    .accessibilityElement(children: .combine)
+                ForEach(TrophyFamily.all) { family in
+                    TrophyFamilyCell(family: family, earned: earned, showNext: false)
                 }
             }
         }
         .hiTile(cornerRadius: 22)
     }
 
+    /// 上の大きなカード：ランクの色に染まった背景に、アイコン・名前・ランク・次のランクまで
+    private func hero(_ p: CloudProfile) -> some View {
+        let rank = p.rank.flatMap(Rank.init(rawValue:)) ?? .bronze
+        let colors = rank.cardColors
+        let points = p.points ?? rank.threshold
+        let progress: Double = {
+            guard let next = rank.next else { return 1 }
+            let span = Double(next.threshold - rank.threshold)
+            return min(1, max(0, Double(points - rank.threshold) / span))
+        }()
+        return VStack(spacing: 10) {
+            Group {
+                if let image = (isMe ? Avatar.load() : cloud.avatars[p.uid]) {
+                    Image(uiImage: image).resizable().scaledToFill()
+                } else {
+                    Rectangle().fill(Hi.neon)
+                        .overlay(Text(String(p.name.prefix(1)))
+                            .font(.system(size: 48, weight: .black, design: .rounded)).foregroundStyle(Hi.onNeon))
+                }
+            }
+            .frame(width: 112, height: 112)
+            .clipShape(Circle())
+            .overlay(Circle().stroke(rank.color, lineWidth: 4))
+            .overlay(alignment: .bottomTrailing) {
+                Image(systemName: rank.icon).font(.subheadline.weight(.black)).foregroundStyle(rank.color)
+                    .padding(8).background(Circle().fill(Color.black.opacity(0.75)))
+            }
+            Text(p.name).font(.title.weight(.black)).foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.6)
+            HStack(spacing: 6) {
+                Text("@" + p.handle).font(.subheadline.weight(.bold)).foregroundStyle(.white.opacity(0.75))
+                if p.rank != nil { RankBadge(rank: rank) }
+            }
+            Text(p.code).font(.system(.caption, design: .monospaced)).foregroundStyle(.white.opacity(0.55))
+            if p.points != nil {
+                VStack(spacing: 5) {
+                    ProgressView(value: progress).tint(rank.color)
+                    Text(rank.next.map { LF("{r}まで {n} pt", ["r": $0.name, "n": "\(max(0, $0.threshold - points))"]) } ?? L("最高ランク"))
+                        .font(.caption.weight(.bold)).foregroundStyle(.white.opacity(0.75))
+                }
+                .padding(.top, 6).padding(.horizontal, 12)
+            }
+        }
+        .padding(.vertical, 22).padding(.horizontal, 12)
+        .frame(maxWidth: .infinity)
+        .background(
+            ZStack {
+                LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom)
+                RadialGradient(colors: [rank.color.opacity(0.45), .clear], center: .top, startRadius: 0, endRadius: 260)
+            }
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
+        .accessibilityElement(children: .combine)
+    }
+
     private func card(_ p: CloudProfile) -> some View {
         VStack(spacing: 10) {
-            Circle()
-                .fill(Hi.neon)
-                .frame(width: 104, height: 104)
-                .overlay(Text(String(p.name.prefix(1)))
-                    .font(.system(size: 44, weight: .black, design: .rounded)).foregroundStyle(Hi.onNeon))
-            Text(p.name).font(.title2.weight(.black))
-            HStack(spacing: 6) {
-                Text("@" + p.handle).font(.subheadline).foregroundStyle(Hi.dim)
-                if let rank = p.rank.flatMap(Rank.init(rawValue:)) { RankBadge(rank: rank) }
+            hero(p)
+            // 友達なら、上のすぐ見えるところから、メッセージを開ける
+            if cloud.isOn, !isMe, isFriend(p), !cloud.blocked.contains(p.uid) {
+                Button {
+                    chatFriend = CloudFriend(uid: p.uid, name: p.name, code: p.code)
+                } label: {
+                    Label(L("メッセージ"), systemImage: "bubble.left.and.bubble.right.fill")
+                }
+                .buttonStyle(NeonButtonStyle())
             }
-            Text(p.code).font(.system(.caption, design: .monospaced)).foregroundStyle(Hi.dim)
-            statsSection(p).padding(.top, 10)
+            statsSection(p).padding(.top, 4)
 
             Spacer(minLength: 16)
             if isMe {
@@ -308,12 +383,14 @@ struct PersonProfileSheet: View {
                 Label(L("友達です"), systemImage: "checkmark.circle.fill")
                     .font(.headline.weight(.black)).foregroundStyle(Hi.neon)
                 if cloud.isOn {
-                    Button {
-                        chatFriend = CloudFriend(uid: p.uid, name: p.name, code: p.code)
-                    } label: {
-                        Label(L("メッセージ"), systemImage: "bubble.left.and.bubble.right.fill")
+                    if !cloud.blocked.contains(p.uid) {
+                        Button {
+                            calendarTarget = CalendarTarget(id: p.uid, name: p.name)
+                        } label: {
+                            Label(L("カレンダーを見る"), systemImage: "calendar")
+                        }
+                        .buttonStyle(TileButtonStyle())
                     }
-                    .buttonStyle(NeonButtonStyle())
                 }
                 Button(role: .destructive) {
                     Task { await cloud.removeFriend(uid: p.uid); dismiss() }
@@ -374,7 +451,9 @@ struct PersonProfileSheet: View {
         }
         phase = .loading
         do {
-            phase = .found(try await cloud.lookup(code: code))
+            let profile = try await cloud.lookup(code: code)
+            phase = .found(profile)
+            Task { await cloud.loadAvatar(profile.uid) }
         } catch CloudError.notFound {
             phase = .notFound
         } catch {
@@ -409,7 +488,9 @@ struct FriendListSheet: View {
             .map { Row(id: $0, name: $0, sub: "@" + $0.lowercased(), cloudUID: nil) }
     }
 
-    var body: some View {
+    var body: some View { bodyContent.edgeSwipeBack() }
+
+    private var bodyContent: some View {
         NavigationStack {
             List {
                 Section {
@@ -477,11 +558,11 @@ struct FriendListSheet: View {
             .navigationTitle(L("友達"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button(L("閉じる")) { dismiss() } }
+                ToolbarItem(placement: .topBarLeading) { Button { dismiss() } label: { Image(systemName: "chevron.left").font(.system(size: 16, weight: .bold)) }.accessibilityLabel(L("戻る")) }
             }
-            .sheet(isPresented: $showAdd) { AddFriendSheet(isPresented: $showAdd) }
-            .sheet(item: $viewing) { PersonProfileSheet(code: $0.id) }
-            .sheet(item: $chat) { ChatView(friend: $0) }
+            .fullScreenCover(isPresented: $showAdd) { AddFriendSheet(isPresented: $showAdd) }
+            .fullScreenCover(item: $viewing) { PersonProfileSheet(code: $0.id) }
+            .fullScreenCover(item: $chat) { ChatView(friend: $0) }
         }
         .presentationDetents([.large])
         .preferredColorScheme(.dark)

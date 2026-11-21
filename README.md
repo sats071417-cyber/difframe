@@ -1,10 +1,14 @@
 # Difframe
 
-**One shared daily prompt, photographed around the world.**
+**Same prompt. Different worlds.** A small daily ritual for people who live far from home.
 
-Every day, everyone gets the same prompt by notification (for example, "something brown"). You have a short time to take a photo that fits it, and then you can see how the same prompt looks in other places and times around the world.
+Everyone gets the same photo prompt at the same moment (for example "something brown" or "a window"). You answer with one photo, taken on the spot. Because the prompt is shared, your photo can be compared with a friend's in another country, or a stranger's on the other side of the world.
 
-Built for IceHacks 2026. iOS app written in SwiftUI (iOS 17+).
+iOS app written in SwiftUI, with a Firebase back end. Submitted to the STEM2Connect AI Hackathon 2026 (track: local community impact, with accessibility).
+
+## Why we built it
+
+Millions of people live far from the people they love: international students, migrant workers, families split across time zones. Distance does not only mean fewer messages. It means missing the ordinary moments. Chat apps assume you already know what to say. A shared prompt gives you something to say without needing to say anything.
 
 ## Screenshots
 
@@ -12,32 +16,46 @@ Built for IceHacks 2026. iOS app written in SwiftUI (iOS 17+).
 |---|---|---|
 | ![Today](docs/screenshots/today.png) | ![Friends](docs/screenshots/timeline-friends.png) | ![Everyone](docs/screenshots/timeline-everyone.png) |
 
-| World globe | Ranking | Profile |
+| World map | Ranking | Profile |
 |---|---|---|
-| ![Globe](docs/screenshots/world-globe.png) | ![Ranking](docs/screenshots/world-ranking.png) | ![Profile](docs/screenshots/profile.png) |
+| ![World map](docs/screenshots/world-globe.png) | ![Ranking](docs/screenshots/world-ranking.png) | ![Profile](docs/screenshots/profile.png) |
+
+## Where AI is used
+
+The AI in the app is a set of small helpers that run **on the device**. No photo or text is sent to an AI service.
+
+| Feature | What it does | Technology |
+|---|---|---|
+| Prompt check | Checks that a photo matches the prompt before it counts for the ranking. A mismatch shows a gentle warning and never blocks the post. | Apple Vision (`VNClassifyImageRequest`) |
+| Color prompts | Prompts such as "something brown" use a pixel color check, because a classifier is the wrong tool for color. | Pixel sampling on the image (no model) |
+| Photo description | Names what is in a photo ("cat, sofa"), suggests a caption, and saves a short description so VoiceOver can read friends' photos aloud. | Apple Vision |
+| Translate button | Translates a caption, comment, or message into the reader's language. The text never leaves the phone. Needs iOS 18. | Apple Translation framework, NaturalLanguage (language detection) |
+
+We kept the AI small on purpose. It protects fairness and privacy and makes the app more accessible; it is not a chatbot, so the app stays a connection between people.
 
 ## Features
 
-- Daily prompt by notification, with a timer that starts when it arrives
-- In-app camera with pinch zoom, lens buttons that match each iPhone, and front/back capture
-- Photo check: a Vision-based image classifier confirms that a photo matches the prompt; color prompts use a pixel color check
-- World tab: a rotating globe and map of posts from around the world, with local time and light
-- Timeline: friends and everyone, with comments, emoji reactions, and double-tap likes
-- Per-post choice of audience (friends, everyone) and whether to allow comments
-- Optional city name on a post (only the city, never the exact location)
-- Calendar, rankings, trophies, and a share card for Stories
-- Friends by QR code or link: send a friend request, accept it, and see each other's posts
-- Direct messages between friends: text, photos (including a photo taken in the chat), voice messages, emoji reactions, read receipts, and typing indicators
-- Send a friend's post into a chat
-- Block and report, from comments and profiles
-- Notification settings: turn each kind of notification on or off
-- Five languages: English, Japanese, Chinese, Korean, Spanish
+- **One prompt a day.** A notification starts a timer. A heads-up notification and a countdown card appear 30 minutes before. Widgets and a Live Activity (Dynamic Island and Lock Screen) show the prompt.
+- **In-app camera** with pinch zoom, lens buttons for each iPhone, and front and back capture.
+- **World time attack.** The time from notification to post is recorded and ranked by region and worldwide.
+- **Ranks.** Eight rank tiers, from Bronze to Legend, based on monthly points. Friends get a push notification when someone ranks up (each person can turn it off).
+- **World tab.** A world map of public posts (MapKit) that shows the local time of the place you are looking at as you zoom in, plus a "World now" strip with the real local time of twelve cities.
+- **Today's 10.** Ten random public photos each morning. People can opt out of being picked.
+- **Timeline** for friends and for everyone, with comments, emoji reactions, and likes. Each post has its own audience and comment setting.
+- **Friends** by QR code or link, with friend requests.
+- **Direct messages:** text, photos, voice messages, emoji reactions, read receipts, and typing indicators.
+- **Privacy and safety.** Only a city name is shown for a location (rounded to about 10 km, with the zoom capped). Users can report, block, and delete their account in the app. There are no ads and no tracking.
+- **Six languages:** Japanese, English, Chinese, Korean, Spanish, French.
+- **Swipe navigation** between the main tabs and back from full-screen screens.
+
+## Tech stack
+
+Swift and SwiftUI, AVFoundation, Vision, Translation, NaturalLanguage, MapKit, CoreLocation, Core Image (QR codes), WidgetKit, ActivityKit, UserNotifications, BackgroundTasks, Firebase Authentication (phone sign-in), Cloud Firestore, Cloud Functions (Node.js) with APNs for push notifications, Firebase Hosting for the privacy policy.
 
 ## Requirements
 
-- Xcode 16 or later
-- iOS 17 or later
-- macOS to build
+- Xcode 16 or later and macOS
+- iOS 18.6 (the checked-in project setting). The Translate button needs iOS 18.
 
 ## Build and run
 
@@ -48,27 +66,36 @@ python3 make_hitokoma_xcodeproj.py "$PWD/Hitokoma"
 open Hitokoma.xcodeproj
 ```
 
-Then choose an iPhone simulator and press Run.
+Then choose an iPhone simulator and press Run. The camera does not work in the simulator, so the app uses test images there.
 
 ## Server
 
-Friends, posts, comments, messages, and notifications use Firebase (Authentication and Cloud Firestore), called through the REST API. The security rules are in [firestore.rules](firestore.rules). Setting up your own copy needs your own Firebase project: set the project ID and Web API key in `Hitokoma/CloudConfig.swift`, enable Anonymous sign-in, and publish the rules.
+Friends, posts, comments, messages, and notifications use Firebase. The security rules are in [firestore.rules](firestore.rules), and the Cloud Functions that send push notifications are in [firebase/functions](firebase/functions).
 
-Without a server, the app still works on the device.
+To use your own Firebase project:
+
+1. Set the project ID and Web API key in `Hitokoma/CloudConfig.swift`.
+2. Add your own `GoogleService-Info.plist` to `Hitokoma/` (it is not in this repository).
+3. Enable Anonymous and Phone sign-in, and publish the rules.
+4. For push notifications, add your Apple Push key (`.p8`) and key ID with `firebase/setup_push.sh`, then deploy the functions. The key and the `.env` file are never committed.
+
+Without a server, the app still works on the device, and phone sign-up falls back to a demo provider that shows the code on screen.
 
 ## Notes and limits
 
-- The world feed shows sample posts from other users, labeled as samples in the app. Posts from real users appear when people share them.
-- Notifications for the daily prompt are scheduled on the device. Notifications for friends' actions (comments, likes, requests, messages) appear when the app is opened, or when iOS runs a background check. They do not arrive as push notifications while the app is closed; that needs an Apple Developer account and a server-side sender.
-- Phone number sign-up uses a demo provider: the code is shown on screen and no SMS is sent.
-- The camera does not work in the simulator; the app uses test images there.
+- The Web API key in `CloudConfig.swift` is a Firebase client key. Access is controlled by the security rules, not by hiding that key.
+- The camera does not work in the simulator.
 - Photos in messages are kept small (under about 800 KB), and voice messages are limited to 60 seconds.
 - The app is a prototype and is not on the App Store.
 
-## AI use
+## AI use and attribution
 
-Most of the code was written with the help of Claude (Anthropic), an AI coding assistant, under the author's direction. The author reviewed, tested, and chose the design and features.
+We used AI in two ways. Both are described here and on our Devpost page.
+
+**1. AI coding assistant (development).** Most of the code was written with **Claude Code** (Anthropic), an AI coding assistant, working from our directions: it wrote and refactored Swift and SwiftUI code, the Firebase security rules, the Cloud Functions, and the localized strings, and it helped debug build and device problems. We set the product idea and goals, chose the features, reviewed the changes, built the app, and tested it on real iPhones. Decisions about privacy, safety, and what the app should feel like are ours.
+
+**2. AI features in the app.** Apple Vision, Apple Translation, and NaturalLanguage (language detection), as described in [Where AI is used](#where-ai-is-used). They run on the device.
 
 ## License
 
-No license has been chosen yet. All rights reserved by the author.
+No license has been chosen yet. All rights reserved by the authors.

@@ -7,6 +7,13 @@ struct TimelineScreen: View {
     @State private var section: Section = .friends
     @State private var showAdd = false
     @State private var showInvite = false
+    @State private var offsets: [Int: CGFloat] = [:]
+
+    /// 0（いちばん上）〜 1（少し下げた）：見出しを縮める度合い
+    private var collapse: CGFloat {
+        let y = offsets[section == .friends ? 0 : 1] ?? 0
+        return min(1, max(0, -y / 70))
+    }
 
     var body: some View {
         VStack(spacing: 10) {
@@ -25,7 +32,9 @@ struct TimelineScreen: View {
                 .accessibilityLabel(L("友達を追加"))
                 }
             }
+            .scaleEffect(1 - 0.28 * collapse, anchor: .topLeading)
             .padding(.horizontal, 16)
+            .animation(.easeOut(duration: 0.2), value: collapse)
 
             HiSegment(options: [(value: Section.friends, title: L("友達")), (value: Section.everyone, title: L("みんな"))],
                       selection: $section)
@@ -41,6 +50,7 @@ struct TimelineScreen: View {
             }
         }
         .background(Color.black.ignoresSafeArea())
-        .sheet(isPresented: $showInvite) { FriendInviteSheet() }
+        .onPreferenceChange(ScrollOffsetKey.self) { offsets = $0 }
+        .fullScreenCover(isPresented: $showInvite) { FriendInviteSheet() }
     }
 }
