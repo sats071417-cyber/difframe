@@ -41,7 +41,8 @@ struct CloudPostCard: View {
                         // 場所を押すと、大まかな地図が開く
                         if let city = post.city, !city.isEmpty {
                             Button { mapOpen = true } label: {
-                                Label(city, systemImage: "mappin").labelStyle(.titleAndIcon).foregroundStyle(Hi.neon)
+                                Label { CityText(city: city, latitude: post.latitude, longitude: post.longitude) } icon: { Image(systemName: "mappin") }
+                                    .labelStyle(.titleAndIcon).foregroundStyle(Hi.neon)
                             }
                             .buttonStyle(.plain)
                         }

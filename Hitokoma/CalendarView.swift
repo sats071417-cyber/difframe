@@ -145,8 +145,10 @@ struct CalendarView: View {
         let posted = all.filter { $0.postedPhotoFile != nil }
         return VStack(alignment: .leading, spacing: 16) {
             Text(key).font(.headline)
+            // 過去の日は、いつでも見られる。今日は、お題が届いた（通知の時刻を過ぎた）あとだけ
             let today = PostStore.dayKey(for: Date())
-            let revealed = key < today || (key == today && !store.isPromptHidden())
+            let arrival = all.compactMap { $0.notifiedAt ?? $0.scheduledAt }.min()
+            let revealed = key < today || (key == today && (arrival.map { $0 <= Date() } ?? false))
             if let first = all.first, revealed {
                 Text(LF("お題：{p}", ["p": L(first.prompt)])).font(.title3.weight(.black))
             } else if !all.isEmpty {

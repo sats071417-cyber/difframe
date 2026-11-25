@@ -153,7 +153,9 @@ struct WorldMapView: View {
         let fallback = TimeZone(secondsFromGMT: Int((c.longitude / 15).rounded()) * 3600) ?? .gmt
         centerPlace = CenterPlace(name: centerPlace?.name ?? "", zone: fallback)
         geocoder.cancelGeocode()
-        geocoder.reverseGeocodeLocation(CLLocation(latitude: c.latitude, longitude: c.longitude)) { marks, _ in
+        // 地名は、アプリの言語で（iPhone の言語ではなく）
+        let lang = AppLanguage.current == .zh ? "zh-Hans" : AppLanguage.current.rawValue
+        geocoder.reverseGeocodeLocation(CLLocation(latitude: c.latitude, longitude: c.longitude), preferredLocale: Locale(identifier: lang)) { marks, _ in
             guard let mark = marks?.first else { return }
             let name = mark.locality ?? mark.administrativeArea ?? mark.country ?? ""
             let zone = mark.timeZone ?? fallback

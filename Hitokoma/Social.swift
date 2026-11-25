@@ -476,7 +476,7 @@ struct CommentSheet: View {
                     if let city = shownCity, !city.isEmpty {
                         // 場所：「何分前」の横に、同じ大きさの黄色い文字で（押すと、大まかな地図）
                         Button { mapOpen = true } label: {
-                            Label(city, systemImage: "location.fill")
+                            Label { CityText(city: city, latitude: remote?.latitude, longitude: remote?.longitude) } icon: { Image(systemName: "location.fill") }
                                 .imageScale(.small).foregroundStyle(Hi.neon).fontWeight(.semibold)
                                 .lineLimit(1).truncationMode(.tail)
                         }

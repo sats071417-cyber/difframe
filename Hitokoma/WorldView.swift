@@ -8,6 +8,8 @@ struct WorldView: View {
 
     /// true のときは、世界の投稿の一覧だけを出す（タイムラインの「みんな」）
     var feedOnly = false
+    /// タブのスワイプを止める先。タイムラインの「みんな」の中に置くときは、タイムラインのタブ
+    private var gateTab: AppTab { feedOnly ? .friends : .world }
     /// 見えていないときは地図を描かない（裏で地図が動くと、カメラが重くなるため）
     var isActive = true
 
@@ -24,6 +26,7 @@ struct WorldView: View {
     @ObservedObject private var focus = WorldFocus.shared
     @State private var regionSheet: WorldRegion? = nil
     @State private var regionPos: Int? = 0
+    @State private var dotsWidth: CGFloat = 0   // 点々の幅（なぞった位置を、どの都市にするかに使う）
 
     /// 世界の人の本物の公開投稿のうち、場所（都市の中心あたり）がわかるもの
     private var pins: [WorldPin] { cloud.publicPosts.compactMap(WorldPin.init) }
@@ -39,7 +42,7 @@ struct WorldView: View {
         return WorldRanking.board(region: regionSelection, others: cloud.worldTimes, myBest: todayBest,
                                   myName: "@" + MyProfile.handle(myHandle),
                                   myTrophies: Trophy.allCases.filter { $0.isUnlocked(input) },
-                                  myRank: monthly.rank)
+                                  myRank: monthly.rank, ranks: cloud.worldRanks)
     }
 
     var body: some View {
@@ -156,7 +159,7 @@ struct WorldView: View {
                         Button {
                             withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { selectedID = pin.id }
                         } label: {
-                            Text(pin.city.isEmpty ? "@" + pin.handle : pin.city)
+                            pinName(pin)
                                 .font(.subheadline.weight(.bold)).lineLimit(1)
                                 .foregroundStyle(.white)
                                 .padding(.horizontal, 12)
@@ -167,10 +170,17 @@ struct WorldView: View {
                     }
                 }
             }
+            .blocksTabSwipe(gateTab, id: "pins")
         }
     }
 
     /// 選んだ投稿のカード：本物の写真、都市、現地時刻、タイム
+    /// 都市の名前（見る人の言語）。名前がなければ、投稿した人の @ハンドル
+    @ViewBuilder
+    private func pinName(_ pin: WorldPin) -> some View {
+        if pin.city.isEmpty { Text("@" + pin.handle) } else { CityText(city: pin.city, latitude: pin.latitude, longitude: pin.longitude) }
+    }
+
     private func cityCard(_ pin: WorldPin) -> some View {
         let light = pin.light(base: base)
         return HStack(spacing: 12) {
@@ -184,7 +194,7 @@ struct WorldView: View {
             .frame(width: 72, height: 72)
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             VStack(alignment: .leading, spacing: 3) {
-                Text(pin.city.isEmpty ? "@" + pin.handle : pin.city).font(.headline.weight(.black))
+                pinName(pin).font(.headline.weight(.black))
                 Text(LF("現地 {t}", ["t": pin.localTime(base: base)]) + "・" + light.name)
                     .font(.caption.weight(.bold))
                     .foregroundStyle(Hi.dim)
@@ -274,8 +284,33 @@ struct WorldView: View {
             .scrollTargetBehavior(.viewAligned)
             .scrollPosition(id: $regionPos)
             .sensoryFeedback(.selection, trigger: regionPos)
-            HStack { Spacer(); PillIndicator(count: Self.regionClocks.count, index: regionPos ?? 0); Spacer() }
+            .blocksTabSwipe(gateTab, id: "clocks")   // 横にスワイプしても、タブは切り替えない
+            HStack { Spacer(); regionDots; Spacer() }
         }
+    }
+
+    /// 点々：なぞると、その位置の都市へ送れる（タブは切り替えない）
+    private var regionDots: some View {
+        PillIndicator(count: Self.regionClocks.count, index: regionPos ?? 0)
+            .background(GeometryReader { g in
+                Color.clear
+                    .onAppear { dotsWidth = g.size.width }
+                    .onChange(of: g.size.width) { _, w in dotsWidth = w }
+            })
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { v in
+                        let n = Self.regionClocks.count
+                        guard dotsWidth > 0, n > 0 else { return }
+                        let i = min(n - 1, max(0, Int(v.location.x / dotsWidth * CGFloat(n))))
+                        let id = Self.regionClocks[i].id
+                        if regionPos != id {
+                            withAnimation(.easeOut(duration: 0.25)) { regionPos = id }
+                        }
+                    }
+            )
+            .blocksTabSwipe(gateTab, id: "dots")
     }
 
     private func regionCard(_ clock: WorldRegion) -> some View {

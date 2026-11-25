@@ -166,10 +166,26 @@ struct SignUpView: View {
                 code = ""
                 stage = .code
             } catch {
-                self.error = L("コードを送れませんでした。もう一度試してください")
+                NSLog("phone send failed: \(error)")
+                self.error = Self.sendFailureMessage(error)
             }
             busy = false
         }
+    }
+
+    /// コードを送れなかったときの理由。Firebase のエラー番号も添えて、原因を探しやすくする
+    private static func sendFailureMessage(_ error: Error) -> String {
+        let ns = error as NSError
+        let base: String
+        switch ns.code {
+        case 17010: base = L("短い間に何度も試したため、いまは送れません。しばらく待って、もう一度試してください")   // too many requests
+        case 17052: base = L("今日の送信の上限に達しました。明日、もう一度試してください")                       // quota exceeded
+        case 17042, 17041: base = L("電話番号を確認してください")                                                  // invalid / missing number
+        case 17020: base = L("通信できません。ネットワークを確認してください")                                    // network
+        case 17058: base = L("確認の画面が閉じられました。もう一度試してください")                                // reCAPTCHA closed
+        default: base = L("コードを送れませんでした。もう一度試してください")
+        }
+        return ns.domain.contains("FIRAuth") ? base + " (\(ns.code))" : base
     }
 
     // MARK: 2. 確認コード
@@ -201,17 +217,8 @@ struct SignUpView: View {
                 .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Hi.tile))
             }
 
-            TextField(L("6桁のコード"), text: $code)
-                .keyboardType(.numberPad)
-                .textContentType(.oneTimeCode)
-                .focused($focused)
-                .font(.system(size: 28, weight: .black, design: .monospaced))
-                .padding(.horizontal, 14)
-                .frame(height: 60)
-                .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Hi.tile))
-                .onChange(of: code) { _, value in
-                    code = String(value.filter(\.isNumber).prefix(6))
-                }
+            OTPField(code: $code, focused: $focused, hasError: error != nil)
+                .onChange(of: code) { _, _ in if error != nil { error = nil } }
 
             if let error { Text(error).font(.footnote).foregroundStyle(.red) }
 
@@ -314,5 +321,80 @@ struct SignUpView: View {
         phone = e164
         verified = auth.isReal
         onFinish()
+    }
+}
+
+
+/// 認証コードの入力：1つの本物の入力欄（貼り付けも、SMS のコード自動入力も効く）の上に、1桁ずつの枠を重ねる。
+/// 3桁ずつ2組に分け、次に入る枠に輪と点滅する線を出す。間違えたときは、枠が揺れる。
+struct OTPField: View {
+    @Binding var code: String
+    var focused: FocusState<Bool>.Binding
+    var hasError = false
+    var length = 6
+
+    @State private var blink = false
+    @State private var shake: CGFloat = 0
+
+    var body: some View {
+        ZStack {
+            // 本物の入力欄：見えないが、フォーカスと貼り付け・自動入力を受ける
+            TextField("", text: $code)
+                .keyboardType(.numberPad)
+                .textContentType(.oneTimeCode)
+                .focused(focused)
+                .foregroundStyle(.clear).tint(.clear)
+                .opacity(0.02)
+                .onChange(of: code) { _, v in
+                    let digits = String(v.filter(\.isNumber).prefix(length))   // 空白や「-」を取り除く
+                    if digits != v { code = digits }
+                }
+                .accessibilityLabel(L("6桁のコード"))
+
+            HStack(spacing: 8) {
+                ForEach(0..<length, id: \.self) { i in
+                    if i == length / 2 { Capsule().fill(Hi.dim.opacity(0.6)).frame(width: 10, height: 3) }
+                    slot(i)
+                }
+            }
+            .allowsHitTesting(false)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 64)
+        .contentShape(Rectangle())
+        .onTapGesture { focused.wrappedValue = true }
+        .modifier(Shake(amount: shake))
+        .onAppear { withAnimation(.easeInOut(duration: 0.55).repeatForever(autoreverses: true)) { blink = true } }
+        .onChange(of: hasError) { _, now in
+            guard now else { return }
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
+            withAnimation(.linear(duration: 0.4)) { shake += 1 }
+        }
+    }
+
+    private func slot(_ i: Int) -> some View {
+        let chars = Array(code)
+        let digit = i < chars.count ? String(chars[i]) : ""
+        let active = focused.wrappedValue && i == min(chars.count, length - 1)
+        return ZStack {
+            RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Hi.tile)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(hasError ? Color.red : (active ? Hi.neon : Color.white.opacity(0.08)), lineWidth: active || hasError ? 2.5 : 1)
+            if digit.isEmpty {
+                if active { Capsule().fill(Hi.neon).frame(width: 2, height: 26).opacity(blink ? 1 : 0) }   // 点滅する線
+            } else {
+                Text(digit).font(.system(size: 28, weight: .black, design: .monospaced)).foregroundStyle(.white)
+            }
+        }
+        .frame(width: 44, height: 56)
+    }
+}
+
+/// 左右に揺らす（間違えたときの合図）
+private struct Shake: GeometryEffect {
+    var amount: CGFloat
+    var animatableData: CGFloat { get { amount } set { amount = newValue } }
+    func effectValue(size: CGSize) -> ProjectionTransform {
+        ProjectionTransform(CGAffineTransform(translationX: 8 * sin(amount * .pi * 4), y: 0))
     }
 }

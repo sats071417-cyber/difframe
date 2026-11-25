@@ -301,10 +301,54 @@ extension CloudSync {
             if let f = theirs["fields"] as? [String: Any] {
                 if let d = FS.date(f, "lastReadAt") { friendReadAt[friendUID] = d }
                 if let t = FS.date(f, "typingAt") { friendTypingAt[friendUID] = t }
+                if let a = FS.date(f, "activeAt") { friendActiveAt[friendUID] = a }
+                if let on = FS.bool(f, "active") { friendActiveOn[friendUID] = on }
             }
             let mine = try await get("chats/\(chat)/state/\(uid ?? "")")
             if let f = mine["fields"] as? [String: Any], let d = FS.date(f, "lastReadAt") { myReadAt[friendUID] = d }
         } catch {}
+    }
+
+    /// 「オンラインの状態を見せる」の設定（初期値はオン）
+    static var presenceShared: Bool { UserDefaults.standard.object(forKey: "presenceShare") as? Bool ?? true }
+
+    /// 友達に見せる、いまのオンライン状態。見せない設定のとき、データがないときは nil（点を出さない）
+    func presence(for friendUID: String, now: Date = Date()) -> Presence? {
+        guard Self.presenceShared, let at = friendActiveAt[friendUID] else { return nil }
+        let ago = now.timeIntervalSince(at)
+        // 閉じたときに「開いていない」と書くので、それが最新ならオンラインにしない（その時刻が、最後にオンラインだった時刻）
+        if friendActiveOn[friendUID] == false { return ago < 10 * 60 ? .away : .offline }
+        if ago < 50 { return .online }          // 20秒ごとに書くので、50秒以内ならオンライン
+        return ago < 10 * 60 ? .away : .offline
+    }
+
+    /// 「何分前にオンラインだったか」の文字（オンラインのときは「オンライン」）
+    func presenceText(for friendUID: String) -> String? {
+        guard let p = presence(for: friendUID), let at = friendActiveAt[friendUID] else { return nil }
+        if p == .online { return L("オンライン") }
+        return LF("{t}にオンライン", ["t": agoText(at)])
+    }
+
+    /// アプリを開いているあいだ、友達ごとの会話の状態に「いま開いている」時刻を書く（見せる設定のときだけ）
+    func beatPresence() async {
+        guard uid != nil, Self.presenceShared else { return }
+        do {
+            try await ensureSignedIn()
+            for friend in friends.prefix(20) {
+                guard let chat = chatID(with: friend.uid) else { continue }
+                try? await patch("chats/\(chat)/state/\(uid ?? "")", fields: ["activeAt": .timestamp(Date()), "active": .bool(true)], mask: ["activeAt", "active"])
+            }
+        } catch {}
+    }
+
+    /// アプリを閉じたときに、すぐオフラインにする（古い時刻を書いておく）
+    func markOffline() async {
+        guard uid != nil, Self.presenceShared else { return }
+        let now = Date()   // 閉じた時刻（これが「最後にオンラインだった時刻」になる）
+        for friend in friends.prefix(20) {
+            guard let chat = chatID(with: friend.uid) else { continue }
+            try? await patch("chats/\(chat)/state/\(uid ?? "")", fields: ["activeAt": .timestamp(now), "active": .bool(false)], mask: ["activeAt", "active"])
+        }
     }
 
     /// 入力中であることを知らせる（会話の状態に書く）

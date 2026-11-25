@@ -21,6 +21,7 @@ struct SettingsView: View {
     @AppStorage("publicCommentsDefault") private var publicComments = true
     @AppStorage("shareLocation") private var addLocation = true
     @AppStorage("pickupOptOut") private var pickupOptOut = false
+    @AppStorage("presenceShare") private var presenceShare = true
 
     @State private var changingPhone = false
     @State private var confirmDelete = false
@@ -139,6 +140,14 @@ struct SettingsView: View {
                     Text(L("投稿の初期設定"))
                 } footer: {
                     Text(L("投稿のたびに、送り先の画面で変えられます。ここで選んだものが、最初の選択になります。"))
+                }
+
+                Section {
+                    Toggle(L("オンラインの状態を見せる"), isOn: $presenceShare).tint(Hi.neon)
+                } header: {
+                    Text(L("DM"))
+                } footer: {
+                    Text(L("オンにすると、アプリを開いているあいだ、友達のDMに「オンライン」の印が出ます。オフにすると、あなたの状態は見えなくなり、友達の状態も見えなくなります。"))
                 }
 
                 Section {

@@ -103,6 +103,9 @@ final class CloudSync: ObservableObject {
     @Published var blocked: Set<String> = []                          // ブロックした人の uid（表示しない）
     @Published var myReadAt: [String: Date] = [:]                     // 自分が会話を読んだ時刻（未読数に使う）
     @Published var friendTypingAt: [String: Date] = [:]               // 友達が入力していた時刻
+    @Published var friendActiveAt: [String: Date] = [:]               // 友達が、アプリを開いていた最後の時刻（オンラインの印）
+    @Published var worldRanks: [String: WorldRankInfo] = [:]          // 世界ランキングの、他の人のランク（投稿した人の uid ごと）
+    @Published var friendActiveOn: [String: Bool] = [:]               // 友達がいまアプリを開いているか（閉じたときに false を書く）
     @Published var friendReadAt: [String: Date] = [:]                // 友達が既読にした時刻（DM の既読）
     @Published var notices: [CloudNotice] = []                       // 通知（友達リクエストなど）
     @Published var messages: [String: [CloudMessage]] = [:]          // 友達ごとのメッセージ（キーは友達の uid）
@@ -507,14 +510,38 @@ final class CloudSync: ObservableObject {
             async let timeDocs = queryTimes(day: day)
             let (f, p) = try await (friendDocs, publicDocs)
             NSLog("cloud: refresh ok friends=%d public=%d", f.count, p.count)
-            if let times = try? await timeDocs { worldTimes = times.filter { $0.owner != uid && !blocked.contains($0.owner) } }
+            if let times = try? await timeDocs {
+                worldTimes = times.filter { $0.owner != uid && !blocked.contains($0.owner) }
+                Task { await loadWorldRanks() }   // ランキングに出る人のランクを読む
+            }
             friendPosts = f.filter { $0.owner != uid && $0.toFriends && !blocked.contains($0.owner) }.sorted { $0.postedAt > $1.postedAt }
             publicPosts = p.filter { $0.owner != uid && !blocked.contains($0.owner) }.sorted { $0.postedAt > $1.postedAt }
+            WidgetBridge.pushFeed(PostStore.shared)   // 友達の投稿のウィジェットも、新しくする
             lastSync = Date()
             lastError = nil
         } catch {
             report(error)
         }
+    }
+
+    /// 世界ランキングに出る人のランクとトロフィーを、その人のプロフィール（codes/コード）から読む。5分は覚えておく
+    func loadWorldRanks() async {
+        let now = Date()
+        let targets = worldTimes.filter { !$0.code.isEmpty && (worldRanks[$0.owner].map { now.timeIntervalSince($0.at) > 300 } ?? true) }
+            .sorted { $0.elapsed < $1.elapsed }.prefix(30)
+        guard !targets.isEmpty else { return }
+        var found: [String: WorldRankInfo] = [:]
+        await withTaskGroup(of: (String, WorldRankInfo?).self) { group in
+            for t in targets {
+                group.addTask { [self] in
+                    guard let doc = try? await self.get("codes/\(t.code)"), let f = doc["fields"] as? [String: Any],
+                          let rank = FS.double(f, "rank") else { return (t.owner, nil) }
+                    return (t.owner, WorldRankInfo(rank: Int(rank), trophies: FS.stringArray(f, "trophies"), at: Date()))
+                }
+            }
+            for await (owner, info) in group { if let info { found[owner] = info } }
+        }
+        for (k, v) in found { worldRanks[k] = v }
     }
 
     /// その日の、世界の公開投稿（自分とブロックした人を除く。「今日の10枚」の元）
@@ -587,7 +614,7 @@ final class CloudSync: ObservableObject {
 
     /// 今日の公開投稿のタイムだけを、写真なしで読む（写真を除くので、たくさん読んでも軽い）
     private func queryTimes(day: String) async throws -> [WorldTime] {
-        let fields = ["owner", "handle", "name", "city", "elapsed", "tzOffset"]
+        let fields = ["owner", "handle", "name", "city", "elapsed", "tzOffset", "code"]
         let body: [String: Any] = ["structuredQuery": [
             "from": [["collectionId": "posts"]],
             "where": ["compositeFilter": ["op": "AND", "filters": [
@@ -602,7 +629,7 @@ final class CloudSync: ObservableObject {
             guard let doc = row["document"] as? [String: Any], let f = doc["fields"] as? [String: Any],
                   let owner = FS.string(f, "owner"), let elapsed = FS.double(f, "elapsed") else { return nil }
             return WorldTime(owner: owner, handle: FS.string(f, "handle") ?? "", city: FS.string(f, "city") ?? "",
-                             elapsed: elapsed, tzOffset: Int(FS.double(f, "tzOffset") ?? 0))
+                             elapsed: elapsed, tzOffset: Int(FS.double(f, "tzOffset") ?? 0), code: FS.string(f, "code") ?? "")
         }
     }
 
@@ -925,6 +952,14 @@ struct WorldTime: Identifiable {
     let city: String
     let elapsed: Double
     let tzOffset: Int
+    var code: String = ""      // 投稿した人の友達コード（ランクを読むため）
+}
+
+/// ランキングに出す、他の人のランクとトロフィー（その人のプロフィールから読む）
+struct WorldRankInfo {
+    let rank: Int
+    let trophies: [String]
+    let at: Date
 }
 
 

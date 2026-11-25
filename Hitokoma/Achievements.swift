@@ -409,10 +409,15 @@ enum WorldRanking {
 
     /// 今日のランキング（速い順）。region が world なら全員
     static func board(region: Int, others: [WorldTime], myBest: TimeInterval?, myName: String,
-                      myTrophies: [Trophy] = [], myRank: Rank = .bronze) -> [WorldRankEntry] {
+                      myTrophies: [Trophy] = [], myRank: Rank = .bronze, ranks: [String: WorldRankInfo] = [:]) -> [WorldRankEntry] {
         var list = others
             .filter { region == world || PostStore.regionIndex(forOffset: $0.tzOffset) == region }
-            .map { WorldRankEntry(name: "@" + $0.handle, countryCode: "", city: $0.city, time: $0.elapsed, isYou: false) }
+            .map { t in
+                let info = ranks[t.owner]
+                return WorldRankEntry(name: "@" + t.handle, countryCode: "", city: t.city, time: t.elapsed, isYou: false,
+                                      trophies: info.map { i in Trophy.allCases.filter { i.trophies.contains($0.key) } } ?? [],
+                                      rank: info.flatMap { Rank(rawValue: $0.rank) } ?? .bronze)
+            }
         if let myBest, region == world || region == PostStore.regionIndex {
             list.append(WorldRankEntry(name: myName, countryCode: "", city: L("あなた"), time: myBest,
                                        isYou: true, trophies: myTrophies, rank: myRank))

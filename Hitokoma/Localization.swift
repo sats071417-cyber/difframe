@@ -29,6 +29,21 @@ enum AppLanguage: String, CaseIterable, Identifiable {
         return device
     }
 
+    /// アプリの言語を、iPhone の「このアプリの言語」にも伝える。
+    /// こうすると、次にアプリを開いたときから、地図の「法律に基づく情報」など、Apple の画面も、アプリの言語で出る。
+    /// 言語を選んでいない（iPhone に合わせる）ときは、上書きをやめる
+    static func syncSystemLanguage() {
+        let defaults = UserDefaults.standard
+        guard let chosen = defaults.string(forKey: storageKey), let lang = AppLanguage(rawValue: chosen) else {
+            if defaults.object(forKey: "AppleLanguages") != nil { defaults.removeObject(forKey: "AppleLanguages") }
+            return
+        }
+        let code = lang == .zh ? "zh-Hans" : lang.rawValue
+        if (defaults.array(forKey: "AppleLanguages") as? [String])?.first != code {
+            defaults.set([code], forKey: "AppleLanguages")
+        }
+    }
+
     /// iPhone の言語（対応していなければ英語）
     static var device: AppLanguage {
         for code in Locale.preferredLanguages {

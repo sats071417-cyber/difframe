@@ -572,11 +572,20 @@ struct DMListSheet: View {
         return Button { chat = friend } label: {
             HStack(spacing: 12) {
                 PersonAvatar(uid: friend.uid, name: name, size: 52)
+                    .overlay(alignment: .bottomTrailing) {
+                        if let p = cloud.presence(for: friend.uid) { StatusDot(presence: p, size: 14).offset(x: 3, y: 3) }
+                    }
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(name)
-                        .font(.subheadline.weight(.black))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
+                    HStack(spacing: 6) {
+                        Text(name)
+                            .font(.subheadline.weight(.black))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                        if let t = cloud.presenceText(for: friend.uid) {
+                            Text(t).font(.caption2.weight(.bold)).lineLimit(1)
+                                .foregroundStyle(cloud.presence(for: friend.uid) == .online ? Color(red: 0.20, green: 0.84, blue: 0.40) : Hi.dim)
+                        }
+                    }
                     if isTyping {
                         Text(L("入力中…"))
                             .font(.subheadline.weight(.bold))
@@ -662,6 +671,7 @@ struct ChatView: View {
     @State private var hint: String? = nil
     @State private var holding = false
     @State private var lastTyping = Date.distantPast
+    @State private var heartPopID: String? = nil      // ダブルタップで、ハートをふわっと出しているメッセージ
     @State private var profileCode: CodeTarget? = nil
     @State private var showCamera = false
     @State private var viewing: CloudMessage? = nil   // 大きく見る写真
@@ -806,10 +816,16 @@ struct ChatView: View {
             Button { profileCode = CodeTarget(id: friend.code) } label: {
             HStack(spacing: 12) {
             PersonAvatar(uid: friend.uid, name: name, size: 40)
+                .overlay(alignment: .bottomTrailing) {
+                    if let p = cloud.presence(for: friend.uid) { StatusDot(presence: p, size: 12).offset(x: 3, y: 3) }
+                }
             VStack(alignment: .leading, spacing: 1) {
                 Text(name).font(.headline.weight(.black)).lineLimit(1)
                 if typingNow {
                     Text(L("入力中…")).font(.caption.weight(.bold)).foregroundStyle(Hi.neon)
+                } else if let t = cloud.presenceText(for: friend.uid) {
+                    Text(t).font(.caption.weight(.bold))
+                        .foregroundStyle(cloud.presence(for: friend.uid) == .online ? Color(red: 0.20, green: 0.84, blue: 0.40) : Hi.dim)
                 } else {
                     Text("@" + friend.code).font(.caption).foregroundStyle(Hi.dim)
                 }
@@ -826,13 +842,40 @@ struct ChatView: View {
         .overlay(alignment: .bottom) { Rectangle().fill(Hi.tile).frame(height: 1) }
     }
 
-    /// 1件の吹き出し。長押しで絵文字を選ぶ。下に、リアクションと既読
+    /// ダブルタップで、❤️を付ける。もう❤️が付いているときは、外す（ハートがふわっと出るのは、付けたときだけ）
+    private func like(_ m: CloudMessage) {
+        if m.reactions[cloud.uid ?? ""] == Reactions.like {
+            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+            Task { await cloud.react(messageID: m.id, friendUID: friend.uid, emoji: nil) }
+            return
+        }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.6)) { heartPopID = m.id }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            withAnimation(.easeOut(duration: 0.35)) { if heartPopID == m.id { heartPopID = nil } }
+        }
+        Task { await cloud.react(messageID: m.id, friendUID: friend.uid, emoji: Reactions.like) }
+    }
+
+    /// 1件の吹き出し。長押しで絵文字を選ぶ。ダブルタップで❤️。下に、リアクションと既読
     private func bubble(_ m: CloudMessage, tail: Bool = true) -> some View {
         let mine = m.from == cloud.uid
         return VStack(alignment: mine ? .trailing : .leading, spacing: 3) {
             HStack(alignment: .bottom) {
                 if mine { Spacer(minLength: UIScreen.main.bounds.width * 0.25) }   // 吹き出しの幅は、画面の75%まで
                 content(m, mine: mine, tail: tail)
+                    .onTapGesture(count: 2) { if m.photo == nil { like(m) } }   // 写真は、写真の側で受ける（二重に動かないように）
+                    .overlay {
+                        if heartPopID == m.id {
+                            Image(systemName: "heart.fill")
+                                .font(.system(size: 58, weight: .bold))
+                                .foregroundStyle(Color(red: 1.0, green: 0.25, blue: 0.35))
+                                .shadow(color: .black.opacity(0.35), radius: 8)
+                                .transition(.asymmetric(insertion: .scale(scale: 0.2).combined(with: .opacity),
+                                                        removal: .move(edge: .top).combined(with: .opacity)))
+                                .allowsHitTesting(false)
+                        }
+                    }
                     .contextMenu {
                         ForEach(Reactions.all, id: \.self) { emoji in
                             Button(emoji) {
@@ -883,6 +926,7 @@ struct ChatView: View {
                         .frame(width: 220)
                         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                         .contentShape(Rectangle())
+                        .onTapGesture(count: 2) { like(m) }   // ダブルタップで❤️（写真を開くのは、1回押し）
                         .onTapGesture { viewing = m }
                         .accessibilityAddTraits(.isButton)
                         .accessibilityLabel(L("写真を大きく見る"))
@@ -1109,6 +1153,52 @@ private struct VoiceBubble: View {
 }
 
 /// 相手のアイコン：設定している人は、そのアイコンを出す。ない人は、名前の頭文字
+/// オンラインの状態
+enum Presence { case online, away, offline }
+
+/// 状態の点：アバターの右下に重ねる。色は状態だけで決め、まわりに背景色の輪をつけて、写真の上でも見えるようにする。
+/// オンラインのときだけ、点の後ろで、輪が広がって消える（動きを減らす設定のときは止める）
+struct StatusDot: View {
+    let presence: Presence
+    var size: CGFloat = 14
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var ping = false
+
+    private var color: Color {
+        switch presence {
+        case .online: return Color(red: 0.20, green: 0.84, blue: 0.40)
+        case .away: return Color(red: 1.0, green: 0.74, blue: 0.16)
+        case .offline: return Color(red: 0.45, green: 0.45, blue: 0.50)
+        }
+    }
+
+    var label: String {
+        switch presence {
+        case .online: return L("オンライン")
+        case .away: return L("少し前までオンライン")
+        case .offline: return L("オフライン")
+        }
+    }
+
+    var body: some View {
+        ZStack {
+            if presence == .online && !reduceMotion {
+                Circle().fill(color.opacity(0.55))
+                    .frame(width: size, height: size)
+                    .scaleEffect(ping ? 2.2 : 1)
+                    .opacity(ping ? 0 : 1)
+                    .animation(.easeOut(duration: 1.6).repeatForever(autoreverses: false), value: ping)
+            }
+            Circle().fill(color).frame(width: size, height: size)
+                .overlay(Circle().stroke(Color.black, lineWidth: 2.5))   // 背景色の輪
+        }
+        .frame(width: size, height: size)
+        .onAppear { ping = true }
+        .accessibilityElement()
+        .accessibilityLabel(label)
+    }
+}
+
 struct PersonAvatar: View {
     let uid: String
     let name: String

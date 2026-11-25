@@ -650,10 +650,331 @@ struct PromptLiveActivity: Widget {
     }
 }
 
+
+// MARK: - カレンダー・自分の投稿・友達の投稿（WidgetFeed を読む）
+
+struct FeedEntry: TimelineEntry {
+    let date: Date
+    let feed: WidgetFeed?
+}
+
+struct FeedProvider: TimelineProvider {
+    func placeholder(in context: Context) -> FeedEntry { FeedEntry(date: Date(), feed: nil) }
+
+    func getSnapshot(in context: Context, completion: @escaping (FeedEntry) -> Void) {
+        completion(FeedEntry(date: Date(), feed: WidgetFeed.load()))
+    }
+
+    func getTimeline(in context: Context, completion: @escaping (Timeline<FeedEntry>) -> Void) {
+        let feed = WidgetFeed.load()
+        let now = Date()
+        var entries = [FeedEntry(date: now, feed: feed)]
+        // 次のお題が届いたら、友達の投稿を隠す（日付が変わったらカレンダーも描き直す）
+        if let lockAt = feed?.lockAt, lockAt > now { entries.append(FeedEntry(date: lockAt, feed: feed)) }
+        if let midnight = Calendar.current.nextDate(after: now, matching: DateComponents(hour: 0, minute: 0), matchingPolicy: .nextTime),
+           entries.allSatisfy({ $0.date != midnight }) {
+            entries.append(FeedEntry(date: midnight, feed: feed))
+        }
+        entries.sort { $0.date < $1.date }
+        completion(Timeline(entries: entries, policy: .after(now.addingTimeInterval(30 * 60))))
+    }
+}
+
+/// タイム（例：3:12.5、1時間を超えたら 1:03:12）
+private func feedTime(_ t: TimeInterval) -> String {
+    let total = Int(t * 10)
+    let m = total / 600, sec = (total / 10) % 60, tenth = total % 10
+    return m >= 60 ? String(format: "%d:%02d:%02d", m / 60, m % 60, sec) : String(format: "%d:%02d.%d", m, sec, tenth)
+}
+
+/// App Group に置いた、小さくした写真
+private func feedImage(_ file: String) -> UIImage? {
+    guard let url = WidgetFeed.imageDir?.appendingPathComponent(file) else { return nil }
+    return UIImage(contentsOfFile: url.path)
+}
+
+private let feedDayFormatter: DateFormatter = {
+    let f = DateFormatter()
+    f.calendar = Calendar(identifier: .gregorian)
+    f.locale = Locale(identifier: "en_US_POSIX")
+    f.dateFormat = "yyyy-MM-dd"
+    return f
+}()
+
+/// 写真を、同じ大きさで横に並べる（枚数が少なくても、引き伸ばさず、左から並べる。アプリのプロフィールの並びと同じ感じ）
+private struct TileRow<Item, Content: View>: View {
+    let items: [Item]
+    var count = 3
+    @ViewBuilder let content: (Item) -> Content
+
+    var body: some View {
+        GeometryReader { g in
+            let spacing: CGFloat = 8, pad: CGFloat = 10
+            let side = (g.size.width - pad * 2 - spacing * CGFloat(count - 1)) / CGFloat(count)
+            let height = min(side * 1.25, g.size.height - pad * 2)
+            HStack(spacing: spacing) {
+                ForEach(Array(items.prefix(count).enumerated()), id: \.offset) { _, item in
+                    content(item).frame(width: side, height: height)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(pad)
+            .frame(width: g.size.width, height: g.size.height, alignment: .center)
+        }
+    }
+}
+
+/// 写真を枠いっぱいに出し、下に文字を重ねる
+private struct PhotoTile<Overlay: View>: View {
+    let image: UIImage?
+    var corner: CGFloat = 16
+    @ViewBuilder var overlay: Overlay
+
+    var body: some View {
+        ZStack(alignment: .bottomLeading) {
+            if let image {
+                Image(uiImage: image).resizable().scaledToFill()
+            } else {
+                Color.white.opacity(0.08)
+            }
+            LinearGradient(colors: [.clear, .black.opacity(0.75)], startPoint: .center, endPoint: .bottom)
+            overlay.padding(8)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: corner, style: .continuous))
+    }
+}
+
+// MARK: ストリークのカレンダー
+
+struct CalendarWidgetView: View {
+    @Environment(\.widgetFamily) private var family
+    let entry: FeedEntry
+    private var lang: String? { entry.feed?.lang }
+    private var posted: Set<String> { Set(entry.feed?.postedDays ?? []) }
+
+    /// 今月のマス（月曜はじまりではなく、日曜はじまり。前の月の分は nil）
+    private var cells: [Date?] {
+        let cal = Calendar(identifier: .gregorian)
+        guard let interval = cal.dateInterval(of: .month, for: entry.date) else { return [] }
+        let first = interval.start
+        let lead = cal.component(.weekday, from: first) - 1
+        let count = cal.range(of: .day, in: .month, for: first)?.count ?? 30
+        return Array(repeating: nil, count: lead) + (0..<count).compactMap { cal.date(byAdding: .day, value: $0, to: first) }
+    }
+
+    private var monthTitle: String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: W.code(lang))
+        f.setLocalizedDateFormatFromTemplate("MMMM")
+        return f.string(from: entry.date)
+    }
+
+    var body: some View {
+        Group {
+            if family == .systemMedium {
+                HStack(spacing: 14) {
+                    streakBlock.frame(width: 96)
+                    grid
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text(monthTitle).font(.system(size: 12, weight: .black)).foregroundStyle(.white)
+                        Spacer(minLength: 0)
+                        Image(systemName: "flame.fill").font(.system(size: 10)).foregroundStyle(.orange)
+                        Text("\(entry.feed?.streak ?? 0)").font(.system(size: 12, weight: .black, design: .rounded)).foregroundStyle(.white)
+                    }
+                    grid
+                }
+            }
+        }
+        .widgetURL(URL(string: "hitokoma://me"))
+    }
+
+    private var streakBlock: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(monthTitle).font(.system(size: 12, weight: .black)).foregroundStyle(.white.opacity(0.7))
+            Spacer(minLength: 0)
+            Image(systemName: "flame.fill").font(.system(size: 22)).foregroundStyle(.orange)
+            Text("\(entry.feed?.streak ?? 0)")
+                .font(.system(size: 44, weight: .black, design: .rounded)).foregroundStyle(.white)
+                .minimumScaleFactor(0.5).lineLimit(1)
+            Text(W.t("日連続", lang)).font(.system(size: 11, weight: .bold)).foregroundStyle(.white.opacity(0.7))
+            Spacer(minLength: 0)
+            Text(W.f("今月 {n} 日", "\(cells.compactMap { $0 }.filter { posted.contains(feedDayFormatter.string(from: $0)) }.count)", lang))
+                .font(.system(size: 10, weight: .bold)).foregroundStyle(neon)
+        }
+        .frame(maxHeight: .infinity, alignment: .leading)
+    }
+
+    private var grid: some View {
+        let todayKey = feedDayFormatter.string(from: entry.date)
+        let columns = Array(repeating: GridItem(.flexible(), spacing: 3), count: 7)
+        return LazyVGrid(columns: columns, spacing: 3) {
+            ForEach(Array(cells.enumerated()), id: \.offset) { _, day in
+                if let day {
+                    let key = feedDayFormatter.string(from: day)
+                    let on = posted.contains(key)
+                    let isToday = key == todayKey
+                    Text("\(Calendar.current.component(.day, from: day))")
+                        .font(.system(size: family == .systemMedium ? 10 : 8, weight: on ? .black : .semibold, design: .rounded))
+                        .foregroundStyle(on ? onNeon : (key > todayKey ? .white.opacity(0.25) : .white.opacity(0.7)))
+                        .frame(maxWidth: .infinity, minHeight: family == .systemMedium ? 17 : 14)
+                        .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(on ? neon : Color.white.opacity(0.07)))
+                        .overlay {
+                            if isToday {
+                                RoundedRectangle(cornerRadius: 4, style: .continuous).stroke(Color.white, lineWidth: 1.2)
+                            }
+                        }
+                } else {
+                    Color.clear.frame(minHeight: family == .systemMedium ? 17 : 14)
+                }
+            }
+        }
+    }
+}
+
+struct CalendarWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "HitokomaCalendar", provider: FeedProvider()) { entry in
+            CalendarWidgetView(entry: entry)
+                .containerBackground(for: .widget) { Color.black }
+        }
+        .configurationDisplayName(W.t("投稿カレンダー", nil))
+        .description(W.t("投稿した日が光るカレンダーと、連続日数を表示します。", nil))
+        .supportedFamilies([.systemSmall, .systemMedium])
+    }
+}
+
+// MARK: 自分の投稿
+
+struct MineWidgetView: View {
+    @Environment(\.widgetFamily) private var family
+    let entry: FeedEntry
+    private var lang: String? { entry.feed?.lang }
+    private var mine: [WidgetFeed.Mine] { entry.feed?.mine ?? [] }
+
+    var body: some View {
+        Group {
+            if mine.isEmpty {
+                empty(icon: "camera.fill", text: W.t("撮った写真が、ここに並びます", lang))
+            } else if family == .systemMedium {
+                TileRow(items: mine) { m in tile(m, small: true) }
+            } else {
+                tile(mine[0], small: false)
+            }
+        }
+        .widgetURL(URL(string: "hitokoma://me"))
+    }
+
+    private func tile(_ m: WidgetFeed.Mine, small: Bool) -> some View {
+        PhotoTile(image: feedImage(m.file), corner: small ? 14 : 18) {
+            VStack(alignment: .leading, spacing: 0) {
+                Text(m.prompt).font(.system(size: small ? 11 : 15, weight: .black)).foregroundStyle(.white).lineLimit(1)
+                if let t = m.elapsed {
+                    Text(feedTime(t)).font(.system(size: small ? 10 : 12, weight: .bold, design: .monospaced)).foregroundStyle(neon)
+                }
+            }
+        }
+    }
+}
+
+struct MineWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "HitokomaMine", provider: FeedProvider()) { entry in
+            MineWidgetView(entry: entry)
+                .containerBackground(for: .widget) { Color.black }
+        }
+        .configurationDisplayName(W.t("自分の投稿", nil))
+        .description(W.t("最近撮った写真と、お題、タイムを表示します。", nil))
+        .supportedFamilies([.systemSmall, .systemMedium])
+        .contentMarginsDisabled()
+    }
+}
+
+// MARK: 友達の投稿（自分がいまのお題に投稿するまで見えない）
+
+struct FriendsWidgetView: View {
+    @Environment(\.widgetFamily) private var family
+    let entry: FeedEntry
+    private var lang: String? { entry.feed?.lang }
+    private var visible: Bool { entry.feed?.friendsVisible(at: entry.date) ?? false }
+    private var friends: [WidgetFeed.Friend] { entry.feed?.friends ?? [] }
+
+    var body: some View {
+        Group {
+            if !visible {
+                locked
+            } else if friends.isEmpty {
+                empty(icon: "person.2.fill", text: W.t("友達の投稿は、まだありません", lang))
+            } else if family == .systemMedium {
+                TileRow(items: friends) { f in tile(f, small: true) }
+            } else {
+                tile(friends[0], small: false)
+            }
+        }
+        .widgetURL(URL(string: visible ? "hitokoma://timeline" : "hitokoma://capture"))
+    }
+
+    private var locked: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "lock.fill").font(.system(size: family == .systemMedium ? 26 : 22, weight: .bold)).foregroundStyle(neon)
+            Text(W.t("今日のお題を投稿すると、友達の投稿が見られます", lang))
+                .font(.system(size: 12, weight: .black)).foregroundStyle(.white)
+                .multilineTextAlignment(.center).lineLimit(3).minimumScaleFactor(0.7)
+            if family == .systemMedium {
+                Label(W.t("撮る", lang), systemImage: "camera.fill")
+                    .font(.caption.weight(.black)).foregroundStyle(onNeon)
+                    .padding(.horizontal, 12).padding(.vertical, 6)
+                    .background(Capsule().fill(neon))
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func tile(_ f: WidgetFeed.Friend, small: Bool) -> some View {
+        PhotoTile(image: feedImage(f.file), corner: small ? 14 : 18) {
+            VStack(alignment: .leading, spacing: 0) {
+                Text(f.name).font(.system(size: small ? 11 : 14, weight: .black)).foregroundStyle(.white).lineLimit(1)
+                Text([f.prompt, f.city].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · "))
+                    .font(.system(size: small ? 9 : 11, weight: .bold)).foregroundStyle(.white.opacity(0.75)).lineLimit(1)
+            }
+        }
+    }
+}
+
+struct FriendsWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "HitokomaFriends", provider: FeedProvider()) { entry in
+            FriendsWidgetView(entry: entry)
+                .containerBackground(for: .widget) { Color.black }
+        }
+        .configurationDisplayName(W.t("友達の投稿", nil))
+        .description(W.t("友達の最新の写真を表示します。今日のお題を投稿するまでは見えません。", nil))
+        .supportedFamilies([.systemSmall, .systemMedium])
+        .contentMarginsDisabled()
+    }
+}
+
+/// 写真がまだないときの表示
+private func empty(icon: String, text: String) -> some View {
+    VStack(spacing: 8) {
+        Image(systemName: icon).font(.system(size: 22, weight: .bold)).foregroundStyle(neon)
+        Text(text).font(.system(size: 12, weight: .bold)).foregroundStyle(.white.opacity(0.8))
+            .multilineTextAlignment(.center).lineLimit(3).minimumScaleFactor(0.7)
+    }
+    .padding(12)
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+}
+
 @main
 struct HitokomaWidgets: WidgetBundle {
     var body: some Widget {
         StreakWidget()
+        CalendarWidget()
+        MineWidget()
+        FriendsWidget()
         WorldWidget()
         PromptLiveActivity()
     }
@@ -693,6 +1014,16 @@ enum W {
         "通知は {n} ごろ": ["en": "Arrives around {n}", "zh": "约 {n} 送达", "ko": "{n}쯤 도착", "es": "Llega sobre las {n}", "fr": "Notification vers {n}"],
         "通知でお題が届きます": ["en": "The prompt arrives by notification", "zh": "题目会通过通知送达", "ko": "주제는 알림으로 도착해요", "es": "El tema llega por notificación", "fr": "Le thème arrive par notification"],
         "届いてから": ["en": "since it arrived", "zh": "送达后", "ko": "도착 후", "es": "desde que llegó", "fr": "depuis son arrivée"],
+        "投稿カレンダー": ["en": "Post calendar", "zh": "投稿日历", "ko": "게시 캘린더", "es": "Calendario de fotos", "fr": "Calendrier des photos"],
+        "投稿した日が光るカレンダーと、連続日数を表示します。": ["en": "A calendar that lights up the days you posted, with your streak.", "zh": "点亮你投稿过的日子，并显示连续天数。", "ko": "게시한 날이 빛나는 캘린더와 연속 일수를 보여줘요.", "es": "Un calendario que ilumina los días que publicaste, con tu racha.", "fr": "Un calendrier qui illumine les jours où tu as publié, avec ta série."],
+        "今月 {n} 日": ["en": "{n} days this month", "zh": "本月 {n} 天", "ko": "이번 달 {n}일", "es": "{n} días este mes", "fr": "{n} jours ce mois-ci"],
+        "自分の投稿": ["en": "My photos", "zh": "我的投稿", "ko": "내 게시물", "es": "Mis fotos", "fr": "Mes photos"],
+        "最近撮った写真と、お題、タイムを表示します。": ["en": "Your latest photos with the prompt and your time.", "zh": "显示你最近拍的照片、题目和用时。", "ko": "최근 찍은 사진과 주제, 시간을 보여줘요.", "es": "Tus fotos recientes con el tema y tu tiempo.", "fr": "Tes dernières photos avec le thème et ton temps."],
+        "撮った写真が、ここに並びます": ["en": "Your photos will appear here", "zh": "拍的照片会显示在这里", "ko": "찍은 사진이 여기에 나와요", "es": "Tus fotos aparecerán aquí", "fr": "Tes photos apparaîtront ici"],
+        "友達の投稿": ["en": "Friends' photos", "zh": "朋友的投稿", "ko": "친구 게시물", "es": "Fotos de amigos", "fr": "Photos d'amis"],
+        "友達の最新の写真を表示します。今日のお題を投稿するまでは見えません。": ["en": "Your friends' latest photos. Hidden until you post today's prompt.", "zh": "显示朋友的最新照片。投稿今日题目前看不到。", "ko": "친구의 최신 사진을 보여줘요. 오늘의 주제를 올리기 전에는 보이지 않아요.", "es": "Las últimas fotos de tus amigos. Ocultas hasta que publiques el tema de hoy.", "fr": "Les dernières photos de tes amis. Masquées jusqu'à ce que tu publies le thème du jour."],
+        "今日のお題を投稿すると、友達の投稿が見られます": ["en": "Post today's prompt to see your friends' photos", "zh": "投稿今日题目后，就能看到朋友的投稿", "ko": "오늘의 주제를 올리면 친구 게시물을 볼 수 있어요", "es": "Publica el tema de hoy para ver las fotos de tus amigos", "fr": "Publie le thème du jour pour voir les photos de tes amis"],
+        "友達の投稿は、まだありません": ["en": "No photos from friends yet", "zh": "朋友还没有投稿", "ko": "아직 친구 게시물이 없어요", "es": "Aún no hay fotos de amigos", "fr": "Pas encore de photos d'amis"],
         "今日のお題まで": ["en": "Next prompt in", "zh": "距今日题目还有", "ko": "오늘의 주제까지", "es": "Próximo tema en", "fr": "Prochain thème dans"],
         "通知と同時にここに出ます": ["en": "Appears here the moment it's sent", "zh": "送达的同时出现在这里", "ko": "도착하는 순간 여기에 나와요", "es": "Aparece aquí en cuanto llega", "fr": "Apparaît ici dès l'envoi"],
         "投稿済み {n}": ["en": "Posted {n}", "zh": "已发布 {n}", "ko": "게시함 {n}", "es": "Publicado {n}", "fr": "Publié {n}"],

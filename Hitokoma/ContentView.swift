@@ -113,6 +113,23 @@ struct ContentView: View {
         .preferredColorScheme(.dark)
         .tint(.white)
         .onAppear(perform: refreshToday)
+        .onAppear { AppLanguage.syncSystemLanguage() }
+        // 開いているあいだ、友達に「オンライン」を知らせる（20秒ごと）
+        .task(id: scenePhase) {
+            guard scenePhase == .active else {
+                // 画面を離れたら（ホームに戻る・アプリの切り替え）、すぐ友達の画面でオフラインにする。バックグラウンドでも、少し時間をもらう
+                var taskID = UIBackgroundTaskIdentifier.invalid
+                taskID = UIApplication.shared.beginBackgroundTask { UIApplication.shared.endBackgroundTask(taskID) }
+                await CloudSync.shared.markOffline()
+                if taskID != .invalid { UIApplication.shared.endBackgroundTask(taskID) }
+                return
+            }
+            while !Task.isCancelled {
+                await CloudSync.shared.beatPresence()
+                try? await Task.sleep(nanoseconds: 20_000_000_000)
+            }
+        }
+        .onChange(of: languageRaw) { _, _ in AppLanguage.syncSystemLanguage() }
         .onOpenURL(perform: handle)
         .onChange(of: selection) { _, tab in
             visited.insert(tab)
@@ -121,6 +138,7 @@ struct ContentView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { refreshToday() }
             if phase == .background {
+
                 // 閉じるときに今の通知を「見た」ことにし、次の確認を頼む
                 BackgroundSync.markAllSeen()
                 BackgroundSync.schedule()
@@ -205,6 +223,8 @@ struct ContentView: View {
         case "today": selection = .today
         case "capture": capture()   // ウィジェットの「撮る」から
         case "world": selection = .world
+        case "timeline": selection = .friends   // 友達の投稿のウィジェットから
+        case "me": selection = .profile         // カレンダー・自分の投稿のウィジェットから
         case "add":
             // リンクやQRで開いたら、その人のプロフィールを見せる（追加は、そこから）
             guard let id = FriendCode.parse(url.absoluteString), id != FriendCode.myID else { return }

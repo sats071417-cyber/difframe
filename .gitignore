@@ -75,3 +75,4 @@ firebase/functions/.env*
 firebase/.firebase/
 GoogleService-Info.plist
 **/GoogleService-Info.plist
+prompt_candidates.json

@@ -1,15 +1,35 @@
 import SwiftUI
 import UIKit
 import UserNotifications
+import FirebaseAuth
+import FirebaseCore
 
 /// アプリを閉じていても届くプッシュ通知（APNs）のための、端末の登録。
 /// 端末のトークンを Firestore（devices/{uid}）に預けておくと、サーバー（Cloud Functions）が
 /// 友達リクエスト・コメント・リアクション・友達の投稿・DM が来たときに、その端末へ通知を送る。
 final class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication,
+                     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        // Firebase は、アプリ本体（UIApplication）ができたあとに設定する。早すぎると、電話認証の部品が作られない
+        FirebaseBoot.configure()
+        return true
+    }
+
+    func application(_ application: UIApplication,
                      didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        // 電話番号のSMS認証：Firebase に、この端末の宛先を渡す（SwiftUI のアプリでは、自動では渡らない）
+        FirebaseBoot.apnsToken = deviceToken
+        FirebaseBoot.handOffAPNS(delay: 2)
         let token = deviceToken.map { String(format: "%02x", $0) }.joined()
         Task { @MainActor in PushRegistration.shared.didReceive(token: token) }
+    }
+
+    /// 電話番号のSMS認証では、Firebase が「この端末は本物か」を確かめる無音の通知を送ってくる。それを Firebase に渡す
+    func application(_ application: UIApplication,
+                     didReceiveRemoteNotification userInfo: [AnyHashable: Any],
+                     fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+        if FirebaseBoot.available, FirebaseApp.app() != nil { _ = Auth.auth().canHandleNotification(userInfo) }
+        completionHandler(.noData)
     }
 
     func application(_ application: UIApplication,

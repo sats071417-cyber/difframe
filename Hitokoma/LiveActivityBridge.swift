@@ -39,7 +39,8 @@ enum LiveActivityBridge {
 
         if let current = activities.first(where: { $0.attributes.dayKey == today && $0.activityState == .active }) {
             if current.content.state != state { Task { await current.update(content) } }
-        } else if UserDefaults.standard.string(forKey: startedDayKey) != today {
+        } else {
+            // アプリを入れ直すと、前のアクティビティは消えるので、ないときは出し直す
             if (try? Activity.request(attributes: PromptActivityAttributes(dayKey: today), content: content, pushType: nil)) != nil {
                 UserDefaults.standard.set(today, forKey: startedDayKey)
             }

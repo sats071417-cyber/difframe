@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import CoreLocation
 
 /// 投稿につける「場所」。正確な位置ではなく、「東京」のような都市の名前だけを求める。
@@ -86,5 +87,55 @@ final class CityLocator: NSObject, ObservableObject, CLLocationManagerDelegate {
         var name = useArea ? mark.administrativeArea : (mark.locality ?? mark.administrativeArea ?? mark.country)
         if useArea, name == "東京都" { name = "東京" }
         if let name { state = .found(name) } else { state = .failed }
+    }
+}
+
+
+// MARK: - 見る人の言語での、都市の名前
+
+/// 投稿の都市名は、投稿した人の言語で保存されている。見る人の言語で出すために、座標（都市の中心あたり）から、見る人の言語で名前を調べ直す。
+/// 結果は覚えておく（同じ場所を何度も調べない）。調べられないときは、保存されている名前のまま。
+@MainActor
+final class CityNames {
+    static let shared = CityNames()
+    private var cache: [String: String] = [:]
+    private let geocoder = CLGeocoder()
+    private var busy = false
+
+    private func key(_ lat: Double, _ lon: Double) -> String {
+        "\(AppLanguage.current.rawValue):\(String(format: "%.2f,%.2f", lat, lon))"
+    }
+
+    func cached(lat: Double, lon: Double) -> String? { cache[key(lat, lon)] }
+
+    func resolve(lat: Double, lon: Double) async -> String? {
+        let k = key(lat, lon)
+        if let hit = cache[k] { return hit }
+        // 調べるのは、1回に1件ずつ（続けて頼むと、断られるため）
+        while busy { try? await Task.sleep(nanoseconds: 200_000_000); if let hit = cache[k] { return hit } }
+        busy = true
+        defer { busy = false }
+        let lang = AppLanguage.current == .zh ? "zh-Hans" : AppLanguage.current.rawValue
+        let marks = try? await geocoder.reverseGeocodeLocation(CLLocation(latitude: lat, longitude: lon), preferredLocale: Locale(identifier: lang))
+        guard let mark = marks?.first, let name = mark.locality ?? mark.administrativeArea ?? mark.country, !name.isEmpty else { return nil }
+        cache[k] = name
+        return name
+    }
+}
+
+/// 都市の名前（見る人の言語）。座標がなければ、保存されている名前のまま
+struct CityText: View {
+    let city: String
+    var latitude: Double? = nil
+    var longitude: Double? = nil
+    @State private var name: String? = nil
+
+    var body: some View {
+        Text(name ?? city)
+            .task(id: "\(latitude ?? 0),\(longitude ?? 0),\(AppLanguage.current.rawValue)") {
+                guard let lat = latitude, let lon = longitude else { return }
+                if let hit = CityNames.shared.cached(lat: lat, lon: lon) { name = hit; return }
+                if let found = await CityNames.shared.resolve(lat: lat, lon: lon) { name = found }
+            }
     }
 }

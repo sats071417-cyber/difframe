@@ -601,6 +601,9 @@ struct PhotoViewer: View {
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
+        }
+        // 戻るボタンは左上。削除などのメニューは右上に置く（重ならないように）
+        .overlay(alignment: .topLeading) {
             Button { dismiss() } label: {
                 Image(systemName: "chevron.left")
                     .font(.headline)
@@ -611,7 +614,7 @@ struct PhotoViewer: View {
             .accessibilityLabel(L("戻る"))
             .padding(16)
         }
-        .overlay(alignment: .topLeading) {
+        .overlay(alignment: .topTrailing) {
             if !page.isEmpty {
                 DeletePostMenu(recordID: page) {
                     // 消したあと：残りがあれば次の写真へ、なければ閉じる
