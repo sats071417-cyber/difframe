@@ -12,6 +12,13 @@ enum LiveActivityBridge {
     /// その日にもう出したか（自分で消した人に、また出さないため）
     private static let startedDayKey = "liveActivityDay"
 
+    /// このアプリが入った時刻（入れ直すと変わる）
+    private static let buildStamp: String = {
+        guard let url = Bundle.main.executableURL,
+              let d = try? FileManager.default.attributesOfItem(atPath: url.path)[.modificationDate] as? Date else { return "" }
+        return "|\(Int(d.timeIntervalSince1970))"
+    }()
+
     static func sync(_ store: PostStore) {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
         let now = Date()
@@ -39,10 +46,10 @@ enum LiveActivityBridge {
 
         if let current = activities.first(where: { $0.attributes.dayKey == today && $0.activityState == .active }) {
             if current.content.state != state { Task { await current.update(content) } }
-        } else {
-            // アプリを入れ直すと、前のアクティビティは消えるので、ないときは出し直す
+        } else if UserDefaults.standard.string(forKey: startedDayKey) != today + buildStamp {
+            // 1日1回だけ出す（自分で消したときは、出し直さない）。アプリを入れ直したときは、前のものが消えるので、もう一度出す
             if (try? Activity.request(attributes: PromptActivityAttributes(dayKey: today), content: content, pushType: nil)) != nil {
-                UserDefaults.standard.set(today, forKey: startedDayKey)
+                UserDefaults.standard.set(today + buildStamp, forKey: startedDayKey)
             }
         }
     }

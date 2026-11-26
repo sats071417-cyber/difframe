@@ -572,7 +572,7 @@ final class CloudSync: ObservableObject {
     func friendPostIndex(_ friendUID: String) async -> [FriendPostMeta] {
         guard isOn, let uid else { return [] }
         do { try await ensureSignedIn() } catch { return [] }
-        func run(_ extra: [String: Any]) async -> [FriendPostMeta] {
+        @Sendable func run(_ extra: [String: Any]) async -> [FriendPostMeta] {
             let body: [String: Any] = ["structuredQuery": [
                 "from": [["collectionId": "posts"]],
                 "where": ["compositeFilter": ["op": "AND", "filters": [FS.filter("owner", "EQUAL", .string(friendUID)), extra]]],

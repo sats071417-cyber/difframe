@@ -118,8 +118,7 @@ struct ContentView: View {
         .task(id: scenePhase) {
             guard scenePhase == .active else {
                 // 画面を離れたら（ホームに戻る・アプリの切り替え）、すぐ友達の画面でオフラインにする。バックグラウンドでも、少し時間をもらう
-                var taskID = UIBackgroundTaskIdentifier.invalid
-                taskID = UIApplication.shared.beginBackgroundTask { UIApplication.shared.endBackgroundTask(taskID) }
+                let taskID = UIApplication.shared.beginBackgroundTask(expirationHandler: nil)
                 await CloudSync.shared.markOffline()
                 if taskID != .invalid { UIApplication.shared.endBackgroundTask(taskID) }
                 return
