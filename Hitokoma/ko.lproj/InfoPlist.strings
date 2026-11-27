@@ -1,0 +1,5 @@
+"NSCameraUsageDescription" = "Difframe은 오늘의 주제 사진을 찍기 위해 카메라를 사용해요.";
+"NSContactsUsageDescription" = "Difframe은 연락처에서 Difframe을 쓰는 친구를 찾고 초대할 사람을 고르기 위해 연락처를 사용해요. 전화번호는 읽을 수 없는 형태로 바꿔 대조하고, 이름은 보내지 않아요.";
+"NSLocationWhenInUseUsageDescription" = "Difframe은 지도에 내 위치를 표시하고 게시물에 도시 이름(예: 도쿄)을 붙이기 위해 위치를 사용해요. 정확한 위치는 보내지 않아요.";
+"NSPhotoLibraryAddUsageDescription" = "Difframe은 요청할 때 게시물을 사진 보관함에 저장해요.";
+"NSMicrophoneUsageDescription" = "Difframe은 음성 메시지를 녹음하기 위해 마이크를 사용해요.";

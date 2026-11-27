@@ -1,0 +1,5 @@
+"NSCameraUsageDescription" = "Difframe utilise l'appareil photo pour prendre la photo du thème du jour.";
+"NSContactsUsageDescription" = "Difframe utilise tes contacts pour trouver les amis qui utilisent Difframe et choisir qui inviter. Les numéros sont comparés sous une forme illisible et les noms ne sont jamais envoyés.";
+"NSLocationWhenInUseUsageDescription" = "Difframe utilise ta position pour te montrer sur la carte et ajouter le nom de ta ville (par exemple Tokyo) à tes publications. Ta position exacte n'est jamais envoyée.";
+"NSPhotoLibraryAddUsageDescription" = "Difframe enregistre tes publications dans la photothèque quand tu le demandes.";
+"NSMicrophoneUsageDescription" = "Difframe utilise le micro pour enregistrer des messages vocaux.";

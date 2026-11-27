@@ -41,9 +41,39 @@ WIDGET_RESOURCES = ["PrivacyInfo.xcprivacy"]
 FIREBASE_URL = "https://github.com/firebase/firebase-ios-sdk"
 WIDGET_SOURCES = ["HitokomaWidget.swift"]
 SHARED_SOURCES = ["WidgetSnapshot.swift", "AppGroup.swift", "PromptActivity.swift"]
-LOCATION_REASON = "地図であなたのいる場所を示したり、投稿に都市の名前（例：東京）をつけるために使います。正確な位置は送信しません。"
-CONTACTS_REASON = "友達に招待リンクを送る相手を選ぶために使います。連絡先は端末の外へ送りません。"
-CAMERA_REASON = "お題に合わせて、その場で写真を撮るために使います。"
+LOCATION_REASON = "Difframe uses your location to show where you are on the map and to add your city name (like Tokyo) to posts. Your exact location is never sent."
+CONTACTS_REASON = "Difframe uses your contacts to find friends who use Difframe and to choose who to invite. Phone numbers are matched in a form that cannot be read back, and names are never uploaded."
+CAMERA_REASON = "Difframe uses the camera to take the photo for today's prompt."
+PHOTOS_REASON = "Difframe saves your posts to your photo library when you ask it to."
+MIC_REASON = "Difframe uses the microphone to record voice messages."
+# Translations of the permission dialogs (InfoPlist.strings). English is the base (build settings above).
+PERMISSION_TEXT = {
+    "ja": {"NSCameraUsageDescription": "お題に合わせて、その場で写真を撮るために使います。",
+           "NSContactsUsageDescription": "連絡先の中から Difframe を使っている友達を探したり、招待する相手を選んだりするために使います。電話番号は読めない形に変えて照合し、名前は送りません。",
+           "NSLocationWhenInUseUsageDescription": "地図であなたのいる場所を示したり、投稿に都市の名前（例：東京）をつけるために使います。正確な位置は送信しません。",
+           "NSPhotoLibraryAddUsageDescription": "自分の投稿を、写真アプリに保存するために使います。",
+           "NSMicrophoneUsageDescription": "ボイスメッセージを録音するために使います。"},
+    "zh-Hans": {"NSCameraUsageDescription": "Difframe 使用相机拍摄今天题目的照片。",
+                "NSContactsUsageDescription": "Difframe 使用通讯录查找在用 Difframe 的朋友，并选择要邀请的人。手机号会转换成无法读取的形式再比对，不会上传名字。",
+                "NSLocationWhenInUseUsageDescription": "Difframe 使用你的位置在地图上显示你所在的地方，并在帖子中添加城市名称（例如东京）。不会发送精确位置。",
+                "NSPhotoLibraryAddUsageDescription": "Difframe 会在你需要时把帖子保存到照片图库。",
+                "NSMicrophoneUsageDescription": "Difframe 使用麦克风录制语音消息。"},
+    "ko": {"NSCameraUsageDescription": "Difframe은 오늘의 주제 사진을 찍기 위해 카메라를 사용해요.",
+           "NSContactsUsageDescription": "Difframe은 연락처에서 Difframe을 쓰는 친구를 찾고 초대할 사람을 고르기 위해 연락처를 사용해요. 전화번호는 읽을 수 없는 형태로 바꿔 대조하고, 이름은 보내지 않아요.",
+           "NSLocationWhenInUseUsageDescription": "Difframe은 지도에 내 위치를 표시하고 게시물에 도시 이름(예: 도쿄)을 붙이기 위해 위치를 사용해요. 정확한 위치는 보내지 않아요.",
+           "NSPhotoLibraryAddUsageDescription": "Difframe은 요청할 때 게시물을 사진 보관함에 저장해요.",
+           "NSMicrophoneUsageDescription": "Difframe은 음성 메시지를 녹음하기 위해 마이크를 사용해요."},
+    "es": {"NSCameraUsageDescription": "Difframe usa la cámara para hacer la foto del tema de hoy.",
+           "NSContactsUsageDescription": "Difframe usa tus contactos para encontrar amigos que usan Difframe y elegir a quién invitar. Los números se comparan en una forma ilegible y los nombres nunca se envían.",
+           "NSLocationWhenInUseUsageDescription": "Difframe usa tu ubicación para mostrar dónde estás en el mapa y añadir el nombre de tu ciudad (por ejemplo, Tokio) a tus publicaciones. Nunca se envía tu ubicación exacta.",
+           "NSPhotoLibraryAddUsageDescription": "Difframe guarda tus publicaciones en la fototeca cuando se lo pides.",
+           "NSMicrophoneUsageDescription": "Difframe usa el micrófono para grabar mensajes de voz."},
+    "fr": {"NSCameraUsageDescription": "Difframe utilise l'appareil photo pour prendre la photo du thème du jour.",
+           "NSContactsUsageDescription": "Difframe utilise tes contacts pour trouver les amis qui utilisent Difframe et choisir qui inviter. Les numéros sont comparés sous une forme illisible et les noms ne sont jamais envoyés.",
+           "NSLocationWhenInUseUsageDescription": "Difframe utilise ta position pour te montrer sur la carte et ajouter le nom de ta ville (par exemple Tokyo) à tes publications. Ta position exacte n'est jamais envoyée.",
+           "NSPhotoLibraryAddUsageDescription": "Difframe enregistre tes publications dans la photothèque quand tu le demandes.",
+           "NSMicrophoneUsageDescription": "Difframe utilise le micro pour enregistrer des messages vocaux."},
+}
 
 
 def uid(key: str) -> str:
@@ -132,7 +162,14 @@ def main() -> None:
                "\t<key>UIBackgroundModes</key>\n\t<array>\n\t\t<string>fetch</string>\n\t\t<string>remote-notification</string>\n\t</array>\n"
                "\t<key>BGTaskSchedulerPermittedIdentifiers</key>\n\t<array>\n\t\t<string>" + bundle_id + ".refresh</string>\n\t</array>\n"
                "\t<key>UISupportedInterfaceOrientations</key>\n\t<array>\n\t\t<string>UIInterfaceOrientationPortrait</string>\n\t</array>\n"
-               "\t<key>ITSAppUsesNonExemptEncryption</key>\n\t<false/>\n" + PLIST_TAIL)
+               "\t<key>ITSAppUsesNonExemptEncryption</key>\n\t<false/>\n"
+               "\t<key>CFBundleDevelopmentRegion</key>\n\t<string>en</string>\n"
+               "\t<key>CFBundleLocalizations</key>\n\t<array>\n" + "".join(f"\t\t<string>{l}</string>\n" for l in ["en", "ja", "zh-Hans", "ko", "es", "fr"]) + "\t</array>\n"
+               + PLIST_TAIL)
+    # 許可の画面の文の訳（英語は、ビルド設定の文がそのまま使われる）
+    for lang, texts in PERMISSION_TEXT.items():
+        body = "".join('"' + k + '" = "' + v.replace('"', '\\"') + '";\n' for k, v in texts.items())
+        write_text(os.path.join(dirs[APP], lang + ".lproj", "InfoPlist.strings"), body)
     # App Store：アプリが集めるデータと、理由のある API（UserDefaults）の申告。Apple の審査に必要
     write_text(os.path.join(dirs[APP], "PrivacyInfo.xcprivacy"), PRIVACY_APP)
     write_text(os.path.join(dirs[WIDGET], "PrivacyInfo.xcprivacy"), PRIVACY_WIDGET)
@@ -183,6 +220,7 @@ def main() -> None:
         w(f"\t\t{bid(APP, name, 'app')} /* {name} in Resources */ = {{isa = PBXBuildFile; fileRef = {fid(APP, name)} /* {name} */; }};")
     for name in WIDGET_RESOURCES:
         w(f"\t\t{bid(WIDGET, name, 'w')} /* {name} in Resources */ = {{isa = PBXBuildFile; fileRef = {fid(WIDGET, name)} /* {name} */; }};")
+    w(f"\t\t{uid('build_infoplist_strings')} /* InfoPlist.strings in Resources */ = {{isa = PBXBuildFile; fileRef = {uid('variant_infoplist')} /* InfoPlist.strings */; }};")
     for name in SHARED_SOURCES:
         w(f"\t\t{bid('Shared', name, 'app')} /* {name} in Sources */ = {{isa = PBXBuildFile; fileRef = {fid('Shared', name)} /* {name} */; }};")
         w(f"\t\t{bid('Shared', name, 'widget')} /* {name} in Sources */ = {{isa = PBXBuildFile; fileRef = {fid('Shared', name)} /* {name} */; }};")
@@ -221,6 +259,10 @@ def main() -> None:
     for name in WIDGET_RESOURCES:
         w(f"\t\t{fid(WIDGET, name)} /* {name} */ = {{isa = PBXFileReference; lastKnownFileType = {ftype(name)}; "
           f"path = {name}; sourceTree = \"<group>\"; }};")
+    for lang in PERMISSION_TEXT:
+        ql = '"' + lang + '"' if "-" in lang else lang
+        w(f"\t\t{uid('file_infoplist_' + lang)} /* {lang} */ = {{isa = PBXFileReference; lastKnownFileType = text.plist.strings; "
+          f"name = {ql}; path = \"{lang}.lproj/InfoPlist.strings\"; sourceTree = \"<group>\"; }};")
     w("/* End PBXFileReference section */")
 
     # ---- frameworks phases
@@ -238,10 +280,17 @@ def main() -> None:
     for key, folder, names in [("group_app", APP, APP_SOURCES + APP_RESOURCES), ("group_widget", WIDGET, WIDGET_SOURCES + WIDGET_RESOURCES),
                                ("group_shared", "Shared", SHARED_SOURCES)]:
         children = ", ".join(f"{fid(folder, n)} /* {n} */" for n in names)
+        if key == "group_app":
+            children += f", {uid('variant_infoplist')} /* InfoPlist.strings */"
         w(f"\t\t{ids[key]} /* {folder} */ = {{isa = PBXGroup; children = ({children}, ); path = {folder}; sourceTree = \"<group>\"; }};")
     w(f"\t\t{ids['product']} /* Products */ = {{isa = PBXGroup; children = ({ids['app_ref']} /* {APP}.app */, "
       f"{ids['w_ref']} /* {WIDGET}.appex */, ); name = Products; sourceTree = \"<group>\"; }};")
     w("/* End PBXGroup section */")
+    w("\n/* Begin PBXVariantGroup section */")
+    kids = ", ".join(f"{uid('file_infoplist_' + l)} /* {l} */" for l in PERMISSION_TEXT)
+    w(f"\t\t{uid('variant_infoplist')} /* InfoPlist.strings */ = {{isa = PBXVariantGroup; children = ({kids}, ); "
+      f"name = InfoPlist.strings; sourceTree = \"<group>\"; }};")
+    w("/* End PBXVariantGroup section */")
 
     # ---- native targets
     w("\n/* Begin PBXNativeTarget section */")
@@ -259,7 +308,7 @@ def main() -> None:
     w("\n/* Begin PBXProject section */")
     w(f"\t\t{ids['project']} /* Project object */ = {{isa = PBXProject; attributes = {{BuildIndependentTargetsInParallel = 1; "
       f"LastUpgradeCheck = 1600; }}; buildConfigurationList = {ids['config_list_proj']}; compatibilityVersion = \"Xcode 14.0\"; "
-      f"developmentRegion = ja; hasScannedForEncodings = 0; knownRegions = (ja, en, Base, ); mainGroup = {ids['group_root']}; "
+      f"developmentRegion = en; hasScannedForEncodings = 0; knownRegions = (en, ja, \"zh-Hans\", ko, es, fr, Base, ); mainGroup = {ids['group_root']}; "
       f"productRefGroup = {ids['product']} /* Products */; projectDirPath = \"\"; projectRoot = \"\"; "
       f"packageReferences = ({ids['pkg_ref']} /* XCRemoteSwiftPackageReference \"firebase-ios-sdk\" */, ); "
       f"targets = ({ids['target']} /* {APP} */, {ids['w_target']} /* {WIDGET} */, ); }};")
@@ -268,6 +317,7 @@ def main() -> None:
     # ---- resources phases
     w("\n/* Begin PBXResourcesBuildPhase section */")
     res_refs = ", ".join(f"{bid(APP, n, 'app')} /* {n} in Resources */" for n in APP_RESOURCES)
+    res_refs += f", {uid('build_infoplist_strings')} /* InfoPlist.strings in Resources */"
     w(f"\t\t{ids['resources_phase']} /* Resources */ = {{isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; "
       f"files = ({res_refs}, ); runOnlyForDeploymentPostprocessing = 0; }};")
     w(f"\t\t{ids['w_resources']} /* Resources */ = {{isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; "
@@ -315,8 +365,8 @@ def main() -> None:
         "INFOPLIST_KEY_CFBundleDisplayName = Difframe; INFOPLIST_KEY_NSSupportsLiveActivities = YES; "
         f"INFOPLIST_KEY_NSContactsUsageDescription = \"{CONTACTS_REASON}\"; "
         f"INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = \"{LOCATION_REASON}\"; "
-        f"INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = \"自分の投稿を、写真アプリに保存するために使います。\"; "
-        f"INFOPLIST_KEY_NSMicrophoneUsageDescription = \"ボイスメッセージを録音するために使います。\"; "
+        f"INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = \"{PHOTOS_REASON}\"; "
+        f"INFOPLIST_KEY_NSMicrophoneUsageDescription = \"{MIC_REASON}\"; "
         "LD_RUNPATH_SEARCH_PATHS = (\"$(inherited)\", \"@executable_path/Frameworks\"); "
         f"PRODUCT_BUNDLE_IDENTIFIER = {bundle_id}; PRODUCT_NAME = \"$(TARGET_NAME)\"; "
         + (f"CODE_SIGN_ENTITLEMENTS = {APP}/{APP}.entitlements; " if use_group else ""))

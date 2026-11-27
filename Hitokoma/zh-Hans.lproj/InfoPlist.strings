@@ -1,0 +1,5 @@
+"NSCameraUsageDescription" = "Difframe 使用相机拍摄今天题目的照片。";
+"NSContactsUsageDescription" = "Difframe 使用通讯录查找在用 Difframe 的朋友，并选择要邀请的人。手机号会转换成无法读取的形式再比对，不会上传名字。";
+"NSLocationWhenInUseUsageDescription" = "Difframe 使用你的位置在地图上显示你所在的地方，并在帖子中添加城市名称（例如东京）。不会发送精确位置。";
+"NSPhotoLibraryAddUsageDescription" = "Difframe 会在你需要时把帖子保存到照片图库。";
+"NSMicrophoneUsageDescription" = "Difframe 使用麦克风录制语音消息。";

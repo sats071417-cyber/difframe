@@ -1,0 +1,5 @@
+"NSCameraUsageDescription" = "お題に合わせて、その場で写真を撮るために使います。";
+"NSContactsUsageDescription" = "連絡先の中から Difframe を使っている友達を探したり、招待する相手を選んだりするために使います。電話番号は読めない形に変えて照合し、名前は送りません。";
+"NSLocationWhenInUseUsageDescription" = "地図であなたのいる場所を示したり、投稿に都市の名前（例：東京）をつけるために使います。正確な位置は送信しません。";
+"NSPhotoLibraryAddUsageDescription" = "自分の投稿を、写真アプリに保存するために使います。";
+"NSMicrophoneUsageDescription" = "ボイスメッセージを録音するために使います。";
