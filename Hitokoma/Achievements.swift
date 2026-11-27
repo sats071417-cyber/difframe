@@ -414,7 +414,7 @@ enum WorldRanking {
             .filter { region == world || PostStore.regionIndex(forOffset: $0.tzOffset) == region }
             .map { t in
                 let info = ranks[t.owner]
-                return WorldRankEntry(name: "@" + t.handle, countryCode: "", city: t.city, time: t.elapsed, isYou: false,
+                return WorldRankEntry(name: t.name.isEmpty ? L("ユーザー") : t.name, countryCode: "", city: t.city, time: t.elapsed, isYou: false,
                                       trophies: info.map { i in Trophy.allCases.filter { i.trophies.contains($0.key) } } ?? [],
                                       rank: info.flatMap { Rank(rawValue: $0.rank) } ?? .bronze)
             }

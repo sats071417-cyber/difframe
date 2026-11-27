@@ -21,6 +21,10 @@ struct ContentView: View {
     @State private var viewingCode: CodeTarget? = nil   // リンクやQRで開いた、友達コードの持ち主
     @AppStorage(AppLanguage.storageKey) private var languageRaw = ""   // 空 = iPhone の言語に合わせる   // 言語を変えると、画面全体を作り直す
     @AppStorage("onboarded") private var onboarded = false   // 初回の説明を見たか
+    @AppStorage("myName") private var profileName: String = ""
+    @AppStorage("myHandle") private var profileHandle: String = ""
+    /// 名前とIDが決まっているか（決まるまで、ほかの画面に進めない）
+    private var profileReady: Bool { !profileName.trimmingCharacters(in: .whitespaces).isEmpty && !profileHandle.isEmpty }
     @AppStorage(Account.doneKey) private var signUpDone = false   // 電話番号の登録画面を終えたか（「あとで」も含む）
 
     private var todayKey: String { PostStore.dayKey(for: Date()) }
@@ -59,6 +63,9 @@ struct ContentView: View {
         .fullScreenCover(isPresented: $showCapture) {
             CaptureFlow()
                 .environmentObject(store)
+        }
+        .fullScreenCover(isPresented: Binding(get: { onboarded && signUpDone && !profileReady }, set: { _ in })) {
+            RequiredProfileView()
         }
         .fullScreenCover(isPresented: Binding(get: { !onboarded || !signUpDone }, set: { _ in })) {
             if !onboarded {
@@ -233,7 +240,10 @@ struct ContentView: View {
     }
 
     private func refreshToday() {
-        Task { await CloudSync.shared.refresh() }
+        Task {
+            await CloudSync.shared.refresh()
+            await CloudSync.shared.syncPhoneDiscovery()
+        }
         store.ensureToday()
         // ウィジェットの言語とお題の文字を、いまの言語に合わせ直す（言語を変えた直後も含む）
         WidgetBridge.push(store)

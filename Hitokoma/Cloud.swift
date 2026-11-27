@@ -142,6 +142,8 @@ final class CloudSync: ObservableObject {
     func ensureSignedIn() async throws {
         guard isOn else { throw CloudError.disabled }
         if idToken != nil, Date() < tokenExpiry { return }
+        // 登録の画面を終えるまでは、匿名のアカウントを作らない（ログアウトや削除の直後に、使わないアカウントが増えないように）
+        guard refreshToken != nil || UserDefaults.standard.bool(forKey: Account.doneKey) else { throw CloudError.disabled }
         if let running = signingIn { return try await running.value }
         let task = Task { @MainActor in
             defer { signingIn = nil }
@@ -162,7 +164,8 @@ final class CloudSync: ObservableObject {
     /// SMS のコードを確かめて、いまのアカウントに電話番号を結びつける。
     /// その番号のアカウントがすでにあれば（別の端末で作ったなど）、そちらに切り替える。コードが違うときは false
     func completePhoneSignIn(sessionInfo: String, code: String, phone: String) async throws {
-        try await ensureSignedIn()
+        // いまのアカウントがあれば、そこに番号を結びつける。なければ（はじめて・ログアウトのあと）、番号でそのまま入る
+        if refreshToken != nil || UserDefaults.standard.bool(forKey: Account.doneKey) { try await ensureSignedIn() }
         let first = try await phoneRequest(["sessionInfo": sessionInfo, "code": code, "idToken": idToken ?? ""])
         var json = first
         if json["idToken"] == nil, let proof = json["temporaryProof"] as? String {
@@ -175,11 +178,34 @@ final class CloudSync: ObservableObject {
         let changed = newUID != uid
         store(token: token, refresh: newRefresh, uid: newUID, expiresIn: json["expiresIn"])
         if changed {
-            // 別のアカウントに切り替わったので、友達・投稿・通知の宛先を読み直す
+            // 別のアカウントに切り替わった（ログアウトのあとに、同じ番号で入り直したときなど）。
+            // そのアカウントの友達コードと名前を、プロフィールから戻す
+            await restoreProfile(uid: newUID)
+            // 友達・投稿・通知の宛先を読み直す
             friendPosts = []; publicPosts = []
+            clearChatState()
             await refresh(force: true)
             await PushRegistration.shared.upload(force: true)
         }
+    }
+
+    /// 入り直したアカウントの、友達コード・名前・ユーザー名を、サーバーから端末に戻す
+    private func restoreProfile(uid: String) async {
+        guard let profile = try? await get("profiles/\(uid)"), let f = profile["fields"] as? [String: Any] else { return }
+        let defaults = UserDefaults.standard
+        if let code = FS.string(f, "code"), !code.isEmpty {
+            FriendCode.adopt(code)
+            if let c = try? await get("codes/\(code)"), let cf = c["fields"] as? [String: Any],
+               let handle = FS.string(cf, "handle"), !handle.isEmpty {
+                defaults.set(handle.hasPrefix("@") ? String(handle.dropFirst()) : handle, forKey: "myHandle")
+            }
+        }
+        // 名前を付けていない人は、サーバーにはユーザー名が名前として載っている。それは名前として戻さない
+        let handle = defaults.string(forKey: "myHandle") ?? ""
+        if let name = FS.string(f, "name"), !name.isEmpty, name != handle, !name.hasPrefix("user_") {
+            defaults.set(name, forKey: "myName")
+        }
+        defaults.removeObject(forKey: "cloud.profileStamp")
     }
 
     private func phoneRequest(_ body: [String: String]) async throws -> [String: Any] {
@@ -235,7 +261,7 @@ final class CloudSync: ObservableObject {
     var myHandle: String { UserDefaults.standard.string(forKey: "myHandle") ?? "" }
 
     /// 友達コード → 自分、の対応をサーバーに置く（相手がコードで自分を見つけられるように）
-    private func publishProfile() async throws {
+    func publishProfile() async throws {
         guard let uid else { return }
         let store = PostStore.shared
         let month = MonthlyPoints(records: store.records, month: MonthlyPoints.monthKey(for: Date()))
@@ -628,7 +654,8 @@ final class CloudSync: ObservableObject {
         return rows.compactMap { row in
             guard let doc = row["document"] as? [String: Any], let f = doc["fields"] as? [String: Any],
                   let owner = FS.string(f, "owner"), let elapsed = FS.double(f, "elapsed") else { return nil }
-            return WorldTime(owner: owner, handle: FS.string(f, "handle") ?? "", city: FS.string(f, "city") ?? "",
+            return WorldTime(owner: owner, handle: FS.string(f, "handle") ?? "", name: FS.string(f, "name") ?? "",
+                             city: FS.string(f, "city") ?? "",
                              elapsed: elapsed, tzOffset: Int(FS.double(f, "tzOffset") ?? 0), code: FS.string(f, "code") ?? "")
         }
     }
@@ -811,12 +838,20 @@ final class CloudSync: ObservableObject {
         friendPosts = []; publicPosts = []; worldTimes = []
         notices = []; messages = [:]; blocked = []
         sentRequests = []
+        clearChatState()
+    }
+
+    /// 会話の状態（オンライン・既読・入力中）と、世界ランキングのランク。アカウントを切り替えたときに空にする
+    func clearChatState() {
+        friendActiveAt = [:]; friendActiveOn = [:]; friendReadAt = [:]; friendTypingAt = [:]; myReadAt = [:]
+        worldRanks = [:]
     }
 
     func report(_ error: Error) {
         // 画面を切り替えたときの取り消しは、失敗ではない
         if error is CancellationError { return }
         if let url = error as? URLError, url.code == .cancelled { return }
+        if case CloudError.disabled = error { return }   // 登録の画面の途中（まだアカウントがない）は、失敗ではない
         let text = error.localizedDescription
         lastError = text
         print("☁️ Cloud error:", text)   // 索引（index）が要るときは、作るためのリンクがここに出る
@@ -949,6 +984,7 @@ struct WorldTime: Identifiable {
     var id: String { owner }
     let owner: String
     let handle: String
+    var name: String = ""     // 表示する名前（世界の表示では、IDは出さない）
     let city: String
     let elapsed: Double
     let tzOffset: Int

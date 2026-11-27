@@ -44,3 +44,21 @@ exports.pushOnNotice = onDocumentWritten(
     }
   }
 );
+
+// ─── 連絡先から友達を見つける（contacts.js） ───
+const { onCall } = require('firebase-functions/v2/https');
+const functionsV1 = require('firebase-functions/v1');
+const contacts = require('./contacts');
+
+// 電話番号の索引の名前を作る、サーバーだけの鍵。firebase functions:secrets:set PHONE_PEPPER で入れる
+const PHONE_PEPPER = defineSecret('PHONE_PEPPER');
+const REGION = process.env.FUNCTIONS_REGION || 'us-central1';
+
+exports.setPhoneDiscoverable = onCall({ secrets: [PHONE_PEPPER], region: REGION },
+  request => contacts.setDiscoverable(request, PHONE_PEPPER.value()));
+
+exports.matchContacts = onCall({ secrets: [PHONE_PEPPER], region: REGION },
+  request => contacts.matchContacts(request, PHONE_PEPPER.value()));
+
+exports.cleanupPhoneIndex = functionsV1.region(REGION).auth.user()
+  .onDelete(user => contacts.cleanupOnDelete(user.uid));

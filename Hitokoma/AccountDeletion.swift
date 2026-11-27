@@ -68,6 +68,12 @@ extension CloudSync {
         try? await delete("profiles/\(uid)")
         try? await delete("codes/\(FriendCode.myID)")
 
+        // IDも手放す（次に使う人が使えるように）
+        if let h = UserDefaults.standard.string(forKey: "myHandle"), !h.isEmpty { await releaseID(CloudSync.normalizeID(h)) }
+
+        // 連絡先から見つけてもらう索引からも外す（サーバー側でも、アカウントが消えたときに外す）
+        _ = try? await callFunction("setPhoneDiscoverable", ["enabled": false])
+
         // 認証のアカウント（電話番号もここで消える）
         do {
             try await deleteAuthAccount()
@@ -77,12 +83,35 @@ extension CloudSync {
         return .done
     }
 
+    /// ログアウト：サーバーのアカウントとデータは残して、この端末からだけ外す。
+    /// 電話番号で確認したアカウントなら、あとで同じ番号でログインすると戻れる
+    func signOut() async {
+        await markOffline()
+        if let uid { try? await delete("devices/\(uid)") }   // この端末に、通知が届かないようにする
+        wipeLocalData(keepPreferences: true, keepRecords: true)
+    }
+
+    /// ログアウトしても残す、この端末の好み（アカウントのデータではないもの）
+    private static let devicePreferenceKeys: Set<String> = [
+        AppLanguage.storageKey, NotificationScheduler.zoneKey, "presenceShare", "dualCamera",
+        "sharePublic", "shareFriends", "shareLocation", "publicCommentsDefault", "pickupOptOut",
+    ]
+
     /// 削除が終わったあと：この端末の記録・設定・写真もすべて消して、最初の状態に戻す
-    func wipeLocalData() {
+    func wipeLocalData(keepPreferences: Bool = false, keepRecords: Bool = false) {
         resetLocalIdentity()
-        PostStore.shared.wipeAll()
-        if let id = Bundle.main.bundleIdentifier { UserDefaults.standard.removePersistentDomain(forName: id) }
-        UserDefaults.standard.synchronize()
+        if !keepRecords { PostStore.shared.wipeAll() }   // ログアウトでは、この端末の写真と記録を残す
+        // 1つずつ消す（まとめて消すと、画面の @AppStorage に伝わらず、削除したあとも前の画面のままになる）
+        let defaults = UserDefaults.standard
+        if let id = Bundle.main.bundleIdentifier {
+            for key in (defaults.persistentDomain(forName: id) ?? [:]).keys {
+                if keepPreferences && (Self.devicePreferenceKeys.contains(key) || key.hasPrefix("mute.")) { continue }
+                defaults.removeObject(forKey: key)
+            }
+        }
+        // 最初の説明と、電話番号の登録画面から、やり直す
+        defaults.set(false, forKey: "onboarded")
+        defaults.set(false, forKey: Account.doneKey)
         if let group = UserDefaults(suiteName: AppGroup.id) {
             for key in group.dictionaryRepresentation().keys { group.removeObject(forKey: key) }
         }

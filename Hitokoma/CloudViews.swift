@@ -13,7 +13,7 @@ struct CloudPostCard: View {
     private var commentsOn: Bool { asFriend || !post.commentsOff }
 
     private var target: CommentTarget {
-        CommentTarget(id: post.id, owner: post.name.isEmpty ? "@" + post.handle : post.name,
+        CommentTarget(id: post.id, owner: post.name.isEmpty ? L("ユーザー") : post.name,
                       caption: post.caption, image: post.photo, front: post.front, cloudID: post.id)
     }
 
@@ -33,11 +33,11 @@ struct CloudPostCard: View {
                         .foregroundStyle(.white))
                     .onTapGesture(perform: openProfile)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(post.name.isEmpty ? "@" + post.handle : post.name)
+                    Text(post.name.isEmpty ? L("ユーザー") : post.name)
                         .font(.subheadline.weight(.black)).lineLimit(1)
                         .onTapGesture(perform: openProfile)
                     HStack(spacing: 4) {
-                        Text("@\(post.handle) ・ " + LF("現地 {t}", ["t": post.localTime]))
+                        Text(LF("現地 {t}", ["t": post.localTime]))
                         // 場所を押すと、大まかな地図が開く
                         if let city = post.city, !city.isEmpty {
                             Button { mapOpen = true } label: {

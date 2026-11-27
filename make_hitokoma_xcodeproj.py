@@ -24,7 +24,7 @@ import sys
 APP = "Hitokoma"
 WIDGET = "HitokomaWidget"
 
-APP_SOURCES = ["HitokomaApp.swift", "ContentView.swift", "TodayView.swift",
+APP_SOURCES = ["HitokomaApp.swift", "ContentView.swift", "TodayView.swift", "CloudIDs.swift",
                "FriendsView.swift", "WorldMapView.swift",
                "PostStore.swift", "CalendarView.swift", "NotificationScheduler.swift",
                "FriendCode.swift", "PromptArt.swift", "PromptVerifier.swift", "ProfileView.swift",
@@ -36,7 +36,8 @@ def ftype(name):
     return 'folder.assetcatalog' if name.endswith('.xcassets') else 'text.json'
 
 
-APP_RESOURCES = ["Assets.xcassets", "GoogleService-Info.plist"]
+APP_RESOURCES = ["Assets.xcassets", "GoogleService-Info.plist", "PrivacyInfo.xcprivacy"]
+WIDGET_RESOURCES = ["PrivacyInfo.xcprivacy"]
 FIREBASE_URL = "https://github.com/firebase/firebase-ios-sdk"
 WIDGET_SOURCES = ["HitokomaWidget.swift"]
 SHARED_SOURCES = ["WidgetSnapshot.swift", "AppGroup.swift", "PromptActivity.swift"]
@@ -75,6 +76,36 @@ PLIST_HEAD = ('<?xml version="1.0" encoding="UTF-8"?>\n'
               '<plist version="1.0">\n<dict>\n')
 PLIST_TAIL = "</dict>\n</plist>\n"
 
+PRIVACY_HEAD = PLIST_HEAD.replace("<dict>", "<dict>")
+PRIVACY_APP = (PLIST_HEAD +
+    "\t<key>NSPrivacyTracking</key>\n\t<false/>\n"
+    "\t<key>NSPrivacyTrackingDomains</key>\n\t<array/>\n"
+    "\t<key>NSPrivacyCollectedDataTypes</key>\n\t<array>\n"
+    + "".join(
+        "\t\t<dict>\n\t\t\t<key>NSPrivacyCollectedDataType</key>\n\t\t\t<string>" + t + "</string>\n"
+        "\t\t\t<key>NSPrivacyCollectedDataTypeLinked</key>\n\t\t\t<true/>\n"
+        "\t\t\t<key>NSPrivacyCollectedDataTypeTracking</key>\n\t\t\t<false/>\n"
+        "\t\t\t<key>NSPrivacyCollectedDataTypePurposes</key>\n\t\t\t<array>\n\t\t\t\t<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>\n\t\t\t</array>\n"
+        "\t\t</dict>\n"
+        for t in ["NSPrivacyCollectedDataTypeName", "NSPrivacyCollectedDataTypeEmailAddress",
+                  "NSPrivacyCollectedDataTypePhoneNumber", "NSPrivacyCollectedDataTypePreciseLocation",
+                  "NSPrivacyCollectedDataTypeCoarseLocation", "NSPrivacyCollectedDataTypePhotosorVideos",
+                  "NSPrivacyCollectedDataTypeAudioData", "NSPrivacyCollectedDataTypeUserID",
+                  "NSPrivacyCollectedDataTypeOtherUserContent", "NSPrivacyCollectedDataTypeContacts"])
+    + "\t</array>\n"
+    "\t<key>NSPrivacyAccessedAPITypes</key>\n\t<array>\n"
+    "\t\t<dict>\n\t\t\t<key>NSPrivacyAccessedAPIType</key>\n\t\t\t<string>NSPrivacyAccessedAPICategoryUserDefaults</string>\n"
+    "\t\t\t<key>NSPrivacyAccessedAPITypeReasons</key>\n\t\t\t<array>\n\t\t\t\t<string>CA92.1</string>\n\t\t\t</array>\n\t\t</dict>\n"
+    "\t</array>\n" + PLIST_TAIL)
+PRIVACY_WIDGET = (PLIST_HEAD +
+    "\t<key>NSPrivacyTracking</key>\n\t<false/>\n"
+    "\t<key>NSPrivacyTrackingDomains</key>\n\t<array/>\n"
+    "\t<key>NSPrivacyCollectedDataTypes</key>\n\t<array/>\n"
+    "\t<key>NSPrivacyAccessedAPITypes</key>\n\t<array>\n"
+    "\t\t<dict>\n\t\t\t<key>NSPrivacyAccessedAPIType</key>\n\t\t\t<string>NSPrivacyAccessedAPICategoryUserDefaults</string>\n"
+    "\t\t\t<key>NSPrivacyAccessedAPITypeReasons</key>\n\t\t\t<array>\n\t\t\t\t<string>CA92.1</string>\n\t\t\t</array>\n\t\t</dict>\n"
+    "\t</array>\n" + PLIST_TAIL)
+
 
 def main() -> None:
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -100,7 +131,11 @@ def main() -> None:
                "\t\t</dict>\n\t</array>\n"
                "\t<key>UIBackgroundModes</key>\n\t<array>\n\t\t<string>fetch</string>\n\t\t<string>remote-notification</string>\n\t</array>\n"
                "\t<key>BGTaskSchedulerPermittedIdentifiers</key>\n\t<array>\n\t\t<string>" + bundle_id + ".refresh</string>\n\t</array>\n"
-               "\t<key>UISupportedInterfaceOrientations</key>\n\t<array>\n\t\t<string>UIInterfaceOrientationPortrait</string>\n\t</array>\n" + PLIST_TAIL)
+               "\t<key>UISupportedInterfaceOrientations</key>\n\t<array>\n\t\t<string>UIInterfaceOrientationPortrait</string>\n\t</array>\n"
+               "\t<key>ITSAppUsesNonExemptEncryption</key>\n\t<false/>\n" + PLIST_TAIL)
+    # App Store：アプリが集めるデータと、理由のある API（UserDefaults）の申告。Apple の審査に必要
+    write_text(os.path.join(dirs[APP], "PrivacyInfo.xcprivacy"), PRIVACY_APP)
+    write_text(os.path.join(dirs[WIDGET], "PrivacyInfo.xcprivacy"), PRIVACY_WIDGET)
     write_text(os.path.join(dirs[WIDGET], "Info.plist"),
                PLIST_HEAD +
                "\t<key>NSExtension</key>\n\t<dict>\n"
@@ -117,7 +152,7 @@ def main() -> None:
         write_text(os.path.join(dirs[APP], f"{APP}.entitlements"), app_entitlements)
         write_text(os.path.join(dirs[WIDGET], f"{WIDGET}.entitlements"), entitlements)
 
-    for folder, names in [(APP, APP_SOURCES + APP_RESOURCES), (WIDGET, WIDGET_SOURCES), ("Shared", SHARED_SOURCES)]:
+    for folder, names in [(APP, APP_SOURCES + APP_RESOURCES), (WIDGET, WIDGET_SOURCES + WIDGET_RESOURCES), ("Shared", SHARED_SOURCES)]:
         for name in names:
             if not os.path.exists(os.path.join(dirs[folder], name)):
                 sys.exit(f"missing file: {folder}/{name}")
@@ -146,6 +181,8 @@ def main() -> None:
         w(f"\t\t{bid(APP, name, 'app')} /* {name} in Sources */ = {{isa = PBXBuildFile; fileRef = {fid(APP, name)} /* {name} */; }};")
     for name in APP_RESOURCES:
         w(f"\t\t{bid(APP, name, 'app')} /* {name} in Resources */ = {{isa = PBXBuildFile; fileRef = {fid(APP, name)} /* {name} */; }};")
+    for name in WIDGET_RESOURCES:
+        w(f"\t\t{bid(WIDGET, name, 'w')} /* {name} in Resources */ = {{isa = PBXBuildFile; fileRef = {fid(WIDGET, name)} /* {name} */; }};")
     for name in SHARED_SOURCES:
         w(f"\t\t{bid('Shared', name, 'app')} /* {name} in Sources */ = {{isa = PBXBuildFile; fileRef = {fid('Shared', name)} /* {name} */; }};")
         w(f"\t\t{bid('Shared', name, 'widget')} /* {name} in Sources */ = {{isa = PBXBuildFile; fileRef = {fid('Shared', name)} /* {name} */; }};")
@@ -181,6 +218,9 @@ def main() -> None:
     for name in APP_RESOURCES:
         w(f"\t\t{fid(APP, name)} /* {name} */ = {{isa = PBXFileReference; lastKnownFileType = {ftype(name)}; "
           f"path = {name}; sourceTree = \"<group>\"; }};")
+    for name in WIDGET_RESOURCES:
+        w(f"\t\t{fid(WIDGET, name)} /* {name} */ = {{isa = PBXFileReference; lastKnownFileType = {ftype(name)}; "
+          f"path = {name}; sourceTree = \"<group>\"; }};")
     w("/* End PBXFileReference section */")
 
     # ---- frameworks phases
@@ -195,7 +235,7 @@ def main() -> None:
     w("\n/* Begin PBXGroup section */")
     w(f"\t\t{ids['group_root']} = {{isa = PBXGroup; children = ({ids['group_app']} /* {APP} */, {ids['group_widget']} /* {WIDGET} */, "
       f"{ids['group_shared']} /* Shared */, {ids['product']} /* Products */, ); sourceTree = \"<group>\"; }};")
-    for key, folder, names in [("group_app", APP, APP_SOURCES + APP_RESOURCES), ("group_widget", WIDGET, WIDGET_SOURCES),
+    for key, folder, names in [("group_app", APP, APP_SOURCES + APP_RESOURCES), ("group_widget", WIDGET, WIDGET_SOURCES + WIDGET_RESOURCES),
                                ("group_shared", "Shared", SHARED_SOURCES)]:
         children = ", ".join(f"{fid(folder, n)} /* {n} */" for n in names)
         w(f"\t\t{ids[key]} /* {folder} */ = {{isa = PBXGroup; children = ({children}, ); path = {folder}; sourceTree = \"<group>\"; }};")
@@ -231,7 +271,7 @@ def main() -> None:
     w(f"\t\t{ids['resources_phase']} /* Resources */ = {{isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; "
       f"files = ({res_refs}, ); runOnlyForDeploymentPostprocessing = 0; }};")
     w(f"\t\t{ids['w_resources']} /* Resources */ = {{isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; "
-      f"files = (); runOnlyForDeploymentPostprocessing = 0; }};")
+      f"files = ({', '.join(f'{bid(WIDGET, n, chr(119))} /* {n} in Resources */' for n in WIDGET_RESOURCES)}, ); runOnlyForDeploymentPostprocessing = 0; }};")
     w("/* End PBXResourcesBuildPhase section */")
 
     # ---- sources phases

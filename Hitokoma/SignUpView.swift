@@ -85,7 +85,7 @@ struct SignUpView: View {
         VStack(alignment: .leading, spacing: 16) {
             Text(L("電話番号で\nはじめる"))
                 .font(.system(size: 38, weight: .black))
-            Text(L("友達を連絡先から探すときに使います。番号はこの端末の中だけに保存します。"))
+            Text(L("本人確認と、連絡先から友達とつながるために使います。番号そのものは、ほかの人には見えません。"))
                 .font(.subheadline)
                 .foregroundStyle(Hi.dim)
 
@@ -247,8 +247,15 @@ struct SignUpView: View {
                 if phoneOnly {
                     phone = e164
                     verified = auth.isReal
+                    Task { await CloudSync.shared.syncPhoneDiscovery(force: true) }
+                    onFinish()
+                } else if !myName.trimmingCharacters(in: .whitespaces).isEmpty, myName != L("あなた"), !myHandle.isEmpty {
+                    // ログアウトしたあと、同じ番号で入り直した：前の名前とIDが戻っているので、そのまま入る
+                    phone = e164
+                    verified = auth.isReal
                     onFinish()
                 } else {
+                    // はじめての登録：名前とIDを決めてもらう
                     stage = .profile
                 }
             } else {
@@ -316,11 +323,33 @@ struct SignUpView: View {
     }
 
     private func finish() {
-        myName = name.trimmingCharacters(in: .whitespaces)
-        myHandle = normalizedHandle
-        phone = e164
-        verified = auth.isReal
-        onFinish()
+        let newID = normalizedHandle
+        let oldID = myHandle
+        let newName = name.trimmingCharacters(in: .whitespaces)
+        busy = true
+        error = nil
+        Task {
+            do {
+                if CloudSync.shared.isOn {
+                    try await CloudSync.shared.claimID(newID, code: FriendCode.myID)
+                    if !oldID.isEmpty, oldID != newID { await CloudSync.shared.releaseID(oldID) }
+                }
+                myName = newName
+                myHandle = newID
+                phone = e164
+                verified = auth.isReal
+                if CloudSync.shared.isOn { try? await CloudSync.shared.publishProfile() }
+                Task { await CloudSync.shared.syncPhoneDiscovery(force: true) }
+                busy = false
+                onFinish()
+            } catch IDError.taken {
+                busy = false
+                error = L("このIDは、もう使われています。別のIDにしてください。")
+            } catch {
+                busy = false
+                self.error = L("通信できませんでした。電話かWi-Fiを確かめて、もう一度押してください。")
+            }
+        }
     }
 }
 

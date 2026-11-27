@@ -11,13 +11,13 @@ p,li{margin:.5em 0}.dim{color:var(--dim);font-size:.9rem}a{color:var(--ac)}nav a
 <p>Difframe is an app where people around the world photograph the same prompt at the same time. This policy explains what we collect, why, and the choices you have.</p>
 <h2>1. What we collect</h2>
 <ul>
-<li><b>Phone number</b> – to verify you and let you sign in to the same account on another device. It is never shown to other users.</li>
+<li><b>Phone number</b> – to verify you and let you sign in to the same account on another device. It is never shown to other users. If “Let contacts find me” is on (Settings; on by default), we keep a one-way keyed hash of your number (not the number itself) so that people who have your number in their contacts can find you. Turning it off or deleting your account removes it.</li>
 <li><b>Profile</b> – the name, ID (handle) and icon you choose.</li>
 <li><b>Posts</b> – photos (including the second, front-camera photo), captions, the prompt, the time you posted, how fast you posted (your time), and your time zone.</li>
 <li><b>Place</b> – if “add location” is on, the name of your city and its approximate position (rounded to about 10 km). We never send or store your exact location. Your device's location is used on the device only, to show where you are on the map.</li>
 <li><b>Social data</b> – your friends, comments, reactions, direct messages (text, photos, voice), blocks and reports.</li>
 <li><b>Notification settings</b> – your device's push token, your language and the notification types you muted.</li>
-<li><b>Contacts</b> – only if you choose to invite friends. They are read on your device to let you pick who to invite and are never uploaded.</li>
+<li><b>Contacts</b> – only if you open “Find friends from contacts”. Names are never uploaded. Phone numbers are converted on your device into a one-way hash (SHA-256) and sent to our server only to check which ones belong to Difframe users who allow it; the hashes are not stored. Searching is limited per day and requires a verified phone number.</li>
 </ul>
 <p>We do not use advertising, tracking or analytics SDKs, and we do not sell your data.</p>
 <h2>2. How we use it</h2>
@@ -44,13 +44,13 @@ p,li{margin:.5em 0}.dim{color:var(--dim);font-size:.9rem}a{color:var(--ac)}nav a
 <p>Difframe は、世界中の人が同じお題を、同じ時間に撮る写真アプリです。このページでは、集める情報、使い道、あなたが選べることを説明します。</p>
 <h2>1. 集める情報</h2>
 <ul>
-<li><b>電話番号</b>：本人確認と、別の端末で同じアカウントに入るために使います。他の人には表示されません。</li>
+<li><b>電話番号</b>：本人確認と、別の端末で同じアカウントに入るために使います。他の人には表示されません。「連絡先から見つけてもらう」（設定。初期値はオン）がオンのときは、番号そのものではなく、元に戻せない形に変えた値をサーバーに置き、あなたの番号を連絡先に入れている人が、あなたを見つけられるようにします。オフにするか、アカウントを削除すると消えます。</li>
 <li><b>プロフィール</b>：あなたが決めた名前、ID、アイコン。</li>
 <li><b>投稿</b>：写真（2枚撮りの内カメラの写真を含む）、ひとこと、お題、投稿した時刻、投稿までの速さ（タイム）、時間帯。</li>
 <li><b>場所</b>：「場所をつける」がオンのとき、都市の名前と、その大まかな位置（約10km単位に丸めたもの）。正確な位置は、送りも保存もしません。端末の位置情報は、地図であなたのいる場所を示すためだけに、端末の中で使います。</li>
 <li><b>つながりの情報</b>：友達、コメント、リアクション、DM（文字・写真・音声）、ブロック、通報。</li>
 <li><b>通知の設定</b>：端末の通知用の番号（トークン）、言語、オフにした通知の種類。</li>
-<li><b>連絡先</b>：友達を招待するときだけ、端末の中で読み取り、相手を選ぶために使います。サーバーへは送りません。</li>
+<li><b>連絡先</b>：「連絡先から友達を探す」を開いたときだけ読み取ります。名前は送りません。電話番号は、端末の中で元に戻せない形（SHA-256）に変えてからサーバーに送り、Difframe を使っていて見つけてもらうことを許している人かどうかを照合するためだけに使います。保存はしません。探せる数には1日の上限があり、電話番号を確認した人だけが使えます。</li>
 </ul>
 <p>広告、行動の追跡、解析のためのツールは使いません。データを売ることもしません。</p>
 <h2>2. 使い道</h2>

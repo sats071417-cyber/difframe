@@ -76,3 +76,6 @@ firebase/.firebase/
 GoogleService-Info.plist
 **/GoogleService-Info.plist
 prompt_candidates.json
+
+# Node
+node_modules/

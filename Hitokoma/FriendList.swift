@@ -24,7 +24,24 @@ struct AddFriendSheet: View {
                     } label: {
                         Label(L("相手のQRコードを読み取る"), systemImage: "qrcode.viewfinder")
                     }
-                    Text(L("友達追加は、相手のQRコードか、相手から受け取ったリンクからできます。"))
+                    Button {
+                        showContacts = true
+                    } label: {
+                        Label(L("連絡先から友達を探す"), systemImage: "person.crop.circle.badge.plus")
+                    }
+                    HStack {
+                        Image(systemName: "at").foregroundStyle(.secondary)
+                        TextField(L("相手のIDを入力"), text: $newFriend)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .submitLabel(.search)
+                            .onSubmit { open(from: newFriend) }
+                        if !newFriend.isEmpty {
+                            Button(L("探す")) { open(from: newFriend) }
+                                .buttonStyle(.borderless)
+                        }
+                    }
+                    Text(L("友達追加は、連絡先、相手のQRコード、相手のID、相手から受け取ったリンクからできます。"))
                         .font(.caption).foregroundStyle(.secondary)
                     if let message {
                         Text(message).font(.caption).foregroundStyle(.secondary)
@@ -81,6 +98,7 @@ struct AddFriendSheet: View {
                     Button(L("閉じる")) { isPresented = false }
                 }
             }
+            .fullScreenCover(isPresented: $showContacts) { ContactsView() }
             .fullScreenCover(isPresented: $showScanner) {
                 ZStack(alignment: .topLeading) {
                     QRScannerView { value in
@@ -106,13 +124,21 @@ struct AddFriendSheet: View {
 
     /// 読み取った（貼った）コードの人のプロフィールを開く。追加は、そこから行う
     private func open(from text: String, delay: Double = 0) {
-        guard let id = FriendCode.parse(text) else {
-            message = L("リンクかIDを読み取れませんでした")
-            return
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        // リンクでないなら、まずIDとして探す（@・大文字もOK）
+        let looksLikeLink = trimmed.contains("/") || trimmed.contains(":")
+        Task {
+            var code: String? = nil
+            if !looksLikeLink { code = await CloudSync.shared.resolveID(trimmed) }
+            if code == nil { code = FriendCode.parse(trimmed) }
+            guard let id = code else {
+                message = L("IDかリンクが見つかりませんでした")
+                return
+            }
+            message = nil
+            newFriend = ""
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { viewing = CodeTarget(id: id) }
         }
-        message = nil
-        newFriend = ""
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { viewing = CodeTarget(id: id) }
     }
 
     private func removeFriends(at offsets: IndexSet) {

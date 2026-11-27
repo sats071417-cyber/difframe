@@ -17,6 +17,11 @@ enum FriendCode {
         return id
     }
 
+    /// 入り直したアカウントの、前の友達コードを使う
+    static func adopt(_ code: String) {
+        UserDefaults.standard.set(code, forKey: key)
+    }
+
     /// 友達コードを作り直す（サーバーでほかの人のものになっているとき）
     static func renew() {
         UserDefaults.standard.removeObject(forKey: key)

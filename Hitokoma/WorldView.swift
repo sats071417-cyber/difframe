@@ -40,7 +40,7 @@ struct WorldView: View {
         let monthly = MonthlyPoints(records: store.records, month: MonthlyPoints.monthKey(for: Date()))
         let todayBest = store.records(day: store.activeDayKey()).compactMap(\.elapsed).min()
         return WorldRanking.board(region: regionSelection, others: cloud.worldTimes, myBest: todayBest,
-                                  myName: "@" + MyProfile.handle(myHandle),
+                                  myName: cloud.myName,
                                   myTrophies: Trophy.allCases.filter { $0.isUnlocked(input) },
                                   myRank: monthly.rank, ranks: cloud.worldRanks)
     }
@@ -178,7 +178,7 @@ struct WorldView: View {
     /// 都市の名前（見る人の言語）。名前がなければ、投稿した人の @ハンドル
     @ViewBuilder
     private func pinName(_ pin: WorldPin) -> some View {
-        if pin.city.isEmpty { Text("@" + pin.handle) } else { CityText(city: pin.city, latitude: pin.latitude, longitude: pin.longitude) }
+        if pin.city.isEmpty { Text(pin.name.isEmpty ? L("ユーザー") : pin.name) } else { CityText(city: pin.city, latitude: pin.latitude, longitude: pin.longitude) }
     }
 
     private func cityCard(_ pin: WorldPin) -> some View {
@@ -199,7 +199,6 @@ struct WorldView: View {
                     .font(.caption.weight(.bold))
                     .foregroundStyle(Hi.dim)
                 HStack(spacing: 6) {
-                    Text("@" + pin.handle)
                     if let elapsed = pin.elapsed { Text(TimeFormat.string(elapsed)) }
                 }
                 .font(.caption)
@@ -396,7 +395,7 @@ struct WorldView: View {
                 .clipShape(Circle())
                 VStack(alignment: .leading, spacing: 1) {
                     HStack(spacing: 6) {
-                        Text("@" + MyProfile.handle(myHandle)).font(.subheadline.weight(.black))
+                        Text(cloud.myName).font(.subheadline.weight(.black))
                         Text(L("自分")).font(.caption2.weight(.black))
                             .padding(.horizontal, 6).padding(.vertical, 2)
                             .background(Capsule().fill(Hi.neon)).foregroundStyle(Hi.onNeon)

@@ -707,10 +707,16 @@ struct CaptureFlow: View {
                                 .foregroundStyle(Hi.neon)
                                 .frame(height: 24)
                         } else if context.date.timeIntervalSince(start) > TodayView.lateAfter {
-                            Text(L("遅れてもOK"))
-                                .font(.headline.weight(.black))
-                                .foregroundStyle(Hi.neon)
-                                .frame(height: 24)
+                            // 遅れて撮るとき：お題が届いてから何分たったか
+                            VStack(spacing: 2) {
+                                Text(LF("お題は{n}分前に届きました", ["n": "\(Int(context.date.timeIntervalSince(start) / 60))"]))
+                                    .font(.headline.weight(.black))
+                                    .foregroundStyle(Hi.neon)
+                                Text(L("遅れてもOK"))
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(Hi.dim)
+                            }
+                            .multilineTextAlignment(.center)
                         } else {
                             DotText(text: TimeFormat.string(context.date.timeIntervalSince(start)),
                                     pitch: 3.5, color: Hi.neon)

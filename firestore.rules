@@ -14,6 +14,14 @@ service cloud.firestore {
                             && request.resource.data.uid == me();
     }
 
+    // handles/{id}: the friend ID (@name) → friend code. Anyone signed in can look one up; the owner claims it once (no overwrite).
+    match /handles/{id} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn() && request.resource.data.uid == me();
+      allow update, delete: if signedIn() && resource.data.uid == me();
+    }
+
     // friends/{owner}/list/{friend}: the owner reads and edits their own list.
     // A friend may write into the owner's list only while a request from that owner is waiting for them (accepting it).
     match /friends/{owner}/list/{friend} {

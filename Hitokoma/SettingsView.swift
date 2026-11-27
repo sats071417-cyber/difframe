@@ -22,9 +22,13 @@ struct SettingsView: View {
     @AppStorage("shareLocation") private var addLocation = true
     @AppStorage("pickupOptOut") private var pickupOptOut = false
     @AppStorage("presenceShare") private var presenceShare = true
+    @AppStorage(CloudSync.discoverableKey) private var discoverable = true
 
     @State private var changingPhone = false
     @State private var confirmDelete = false
+    @State private var confirmSignOut = false
+    @State private var signingOut = false
+    @AppStorage(Account.verifiedKey) private var phoneVerified = false
     @State private var deleting = false
     @State private var deleteResult: DeleteResult? = nil
 
@@ -92,6 +96,14 @@ struct SettingsView: View {
                     Button(phone.isEmpty ? L("電話番号を登録") : L("電話番号を変える")) {
                         changingPhone = true
                     }
+                    Toggle(L("連絡先から見つけてもらう"), isOn: $discoverable)
+                        .tint(Hi.neon)
+                        .disabled(!phoneVerified || phone.isEmpty)
+                        .onChange(of: discoverable) { _, _ in Task { await CloudSync.shared.syncPhoneDiscovery(force: true) } }
+                    Button { confirmSignOut = true } label: {
+                        if signingOut { ProgressView() } else { Text(L("ログアウト")) }
+                    }
+                    .disabled(signingOut || deleting)
                     Button(role: .destructive) { confirmDelete = true } label: {
                         if deleting { ProgressView() } else { Text(L("アカウントを削除")) }
                     }
@@ -100,7 +112,7 @@ struct SettingsView: View {
                     Text(L("アカウント"))
                 } footer: {
                     Text(FirebaseBoot.available
-                         ? L("電話番号は、本人確認と、別の端末で同じアカウントに入るために使います。ほかの人には見えません。")
+                         ? L("電話番号は、本人確認と、別の端末で同じアカウントに入るために使います。「連絡先から見つけてもらう」がオンのときは、あなたの番号を連絡先に入れている人が、あなたを見つけられます。番号そのものは、ほかの人には見えません。")
                          : L("電話番号は、この端末の中にだけ保存されます。"))
                 }
 
@@ -208,13 +220,34 @@ struct SettingsView: View {
                     Button(L("閉じる")) { dismiss() }
                 }
             }
+            .confirmationDialog(L("ログアウトしますか？"), isPresented: $confirmSignOut, titleVisibility: .visible) {
+                Button(L("ログアウト"), role: .destructive) {
+                    signingOut = true
+                    // 先に設定の画面を閉じてから、消す（開いたまま消すと、最初の画面が出せない）
+                    dismiss()
+                    Task {
+                        try? await Task.sleep(nanoseconds: 600_000_000)
+                        await CloudSync.shared.signOut()
+                    }
+                }
+                Button(L("キャンセル"), role: .cancel) {}
+            } message: {
+                Text(phoneVerified && !phone.isEmpty
+                     ? L("アカウントと投稿は、サーバーに残ります。同じ電話番号でログインすると、戻れます。この端末の写真と記録も、そのまま残ります。")
+                     : L("電話番号を登録していないので、ログアウトすると、このアカウントには戻れません。先に電話番号を登録してください。"))
+            }
             .confirmationDialog(L("アカウントを削除しますか？"), isPresented: $confirmDelete, titleVisibility: .visible) {
                 Button(L("削除する"), role: .destructive) {
                     deleting = true
                     Task {
                         let result = await CloudSync.shared.deleteAccount()
                         deleting = false
-                        if result == .done { CloudSync.shared.wipeLocalData(); dismiss() } else { deleteResult = result }
+                        if result == .done {
+                            // 先に設定の画面を閉じてから、端末のデータを消す（最初の画面を出せるように）
+                            dismiss()
+                            try? await Task.sleep(nanoseconds: 600_000_000)
+                            CloudSync.shared.wipeLocalData()
+                        } else { deleteResult = result }
                     }
                 }
                 Button(L("キャンセル"), role: .cancel) {}

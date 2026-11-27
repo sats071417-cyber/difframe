@@ -12,6 +12,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         // Firebase は、アプリ本体（UIApplication）ができたあとに設定する。早すぎると、電話認証の部品が作られない
         FirebaseBoot.configure()
+        // 電話番号のSMS認証は、Apple の無音の通知で端末を確かめる。無音の通知は、通知の許可がなくても受け取れるので、
+        // 許可を聞く前（はじめの登録画面）でも、通知の宛先をもらっておく
+        application.registerForRemoteNotifications()
         return true
     }
 
@@ -21,7 +24,15 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         FirebaseBoot.apnsToken = deviceToken
         FirebaseBoot.handOffAPNS(delay: 2)
         let token = deviceToken.map { String(format: "%02x", $0) }.joined()
-        Task { @MainActor in PushRegistration.shared.didReceive(token: token) }
+        // サーバーからの通知（友達の投稿など）の宛先は、通知の許可があるときだけ預ける
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            guard settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional else {
+                // 通知をオフにした端末：サーバーに預けた宛先を消す（アプリの中の通知に戻す）
+                Task { @MainActor in await PushRegistration.shared.unregister() }
+                return
+            }
+            Task { @MainActor in PushRegistration.shared.didReceive(token: token) }
+        }
     }
 
     /// 電話番号のSMS認証では、Firebase が「この端末は本物か」を確かめる無音の通知を送ってくる。それを Firebase に渡す
@@ -54,6 +65,16 @@ final class PushRegistration {
             guard settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional else { return }
             DispatchQueue.main.async { UIApplication.shared.registerForRemoteNotifications() }
         }
+    }
+
+    /// 通知の許可がなくなったとき：サーバーの宛先を消して、端末の通知に戻す
+    func unregister() async {
+        let defaults = UserDefaults.standard
+        guard defaults.string(forKey: uploadedKey) != nil || defaults.bool(forKey: Self.registeredKey) else { return }
+        if let uid = CloudSync.shared.uid { try? await CloudSync.shared.delete("devices/\(uid)") }
+        defaults.removeObject(forKey: uploadedKey)
+        defaults.removeObject(forKey: uploadedKey + ".at")
+        defaults.set(false, forKey: Self.registeredKey)
     }
 
     func didReceive(token: String) {
