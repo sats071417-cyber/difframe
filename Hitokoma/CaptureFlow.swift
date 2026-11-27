@@ -702,7 +702,7 @@ struct CaptureFlow: View {
                 if let start = record.startedAt {
                     TimelineView(.periodic(from: .now, by: 0.1)) { context in
                         if context.date < start {
-                            Text(L("通知を待っています"))
+                            Text(store.isFirstDay() ? L("今すぐ撮れます") : L("通知を待っています"))
                                 .font(.headline.weight(.black))
                                 .foregroundStyle(Hi.neon)
                                 .frame(height: 24)

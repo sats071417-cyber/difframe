@@ -118,7 +118,7 @@ struct TodayView: View {
                             VStack(spacing: 8) {
                                 if elapsed < 0 {
                                     // 通知が届くまでは、タイムは始まらない
-                                    Text(L("通知を待っています"))
+                                    Text(store.isFirstDay() ? L("はじめてのお題。今すぐ撮れます") : L("通知を待っています"))
                                         .font(.title3.weight(.black))
                                         .foregroundStyle(Color.black.opacity(0.82))
                                     Text(L("通知の前に撮ると、タイムは記録されません"))

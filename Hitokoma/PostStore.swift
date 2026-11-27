@@ -227,8 +227,16 @@ final class PostStore: ObservableObject {
         return today
     }
 
-    /// 今日のお題が、まだ秘密か（通知の前で、前日の表示もないとき）
+    /// はじめて使う日か（前の日の記録がない）。この日だけは、お題をすぐ見せる。
+    /// 通知の前に撮ったものは、これまでどおりタイムに数えない（ランキングは公平なまま）
+    func isFirstDay(now: Date = Date()) -> Bool {
+        let today = PostStore.dayKey(for: now)
+        return !records.contains { $0.dayKey < today }
+    }
+
+    /// 今日のお題が、まだ秘密か（通知の前で、前日の表示もないとき。はじめての日は秘密にしない）
     func isPromptHidden(now: Date = Date()) -> Bool {
+        if isFirstDay(now: now) { return false }
         let today = PostStore.dayKey(for: now)
         guard activeDayKey(now: now) == today,
               let start = records(day: today).compactMap(\.startedAt).min() else { return false }

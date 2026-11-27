@@ -386,6 +386,8 @@ extension L10n {
         ("IDかリンクが見つかりませんでした", "No se encontró el ID o enlace"),
         ("友達追加は、連絡先、相手のQRコード、相手のID、相手から受け取ったリンクからできます。", "Añade amigos desde tus contactos, su código QR, su ID o un enlace que te enviaron."),
         ("お題は{n}分前に届きました", "El tema llegó hace {n} min"),
+        ("はじめてのお題。今すぐ撮れます", "Tu primer tema. Hazlo ya"),
+        ("今すぐ撮れます", "Ya puedes hacer la foto"),
         ("南北アメリカ", "América"),
         ("アメリカ", "Estados Unidos"),
         ("アラビア語", "árabe"),
