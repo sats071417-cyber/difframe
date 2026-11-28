@@ -232,7 +232,7 @@ struct InboxSheet: View {
         VStack(spacing: 0) {
             SheetHeader(title: L("通知"), onClose: { dismiss() }, collapse: min(max(scrollY / 50, 0), 1)) { EmptyView() }
             HiSegment(options: [(value: InboxTab.notices, title: segmentTitle(L("通知"), unread(Self.noticeTypes))),
-                                (value: InboxTab.requests, title: segmentTitle(L("友達リクエスト"), unread(Self.requestTypes + ["friendRequest"])))],
+                                (value: InboxTab.requests, title: segmentTitle(L("友達追加・承認"), unread(Self.requestTypes + ["friendRequest"])))],
                       selection: $tab)
                 .padding(.horizontal, 16)
                 .padding(.bottom, 8)
@@ -245,7 +245,11 @@ struct InboxSheet: View {
                         sectionTitle(L("友達リクエスト"), count: requests.count)
                         ForEach(requests) { requestCard($0).riseIn() }
                     }
-                    if shown.isEmpty && (tab == .notices || requests.isEmpty) {
+                    // 連絡先の友達：使っている人にはそのまま申請、まだの人は招待
+                    if tab == .requests {
+                        FriendSuggestionsSection()
+                    }
+                    if shown.isEmpty && tab == .notices {
                         EmptyNote(symbol: tab == .notices ? "bell.fill" : "person.2.fill",
                                   title: L("通知はありません"),
                                   detail: tab == .notices ? L("コメントやいいね、友達の投稿が届くと、ここに出ます。")
