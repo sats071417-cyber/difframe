@@ -70,7 +70,7 @@ final class ContactsDirectory: ObservableObject {
         var found: [ContactFriend] = []
         var thumbs: [String: Data] = [:]
         let cloud = CloudSync.shared
-        if verified, cloud.isOn, !byHash.isEmpty, let result = await cloud.matchContacts(hashes: Array(byHash.keys)) {
+        if verified, cloud.isOn, !byHash.isEmpty, let result = await cachedMatches(hashes: Array(byHash.keys), force: force) {
             var seen = Set<String>()
             for m in result {
                 guard let c = byHash[m.hash] else { continue }
@@ -90,6 +90,32 @@ final class ContactsDirectory: ObservableObject {
             .sorted { ($0.thumbnail != nil ? 0 : 1, $0.name) < ($1.thumbnail != nil ? 0 : 1, $1.name) }
         loadedAt = Date()
         state = .ready
+    }
+
+    /// 照合の結果を、6時間はこの端末に覚えておく（サーバーの1日の上限に、すぐ届かないように）。
+    /// 連絡先が増えたときや「引っぱって更新」では、照合し直す
+    private struct MatchCache: Codable {
+        let at: Date
+        let hashes: [String]
+        let matches: [[String: String]]
+    }
+    private static let cacheKey = "contacts.matchCache"
+
+    private func cachedMatches(hashes: [String], force: Bool) async -> [CloudSync.ContactMatch]? {
+        let sortedHashes = hashes.sorted()
+        if !force, let data = UserDefaults.standard.data(forKey: Self.cacheKey),
+           let cache = try? JSONDecoder().decode(MatchCache.self, from: data),
+           Date().timeIntervalSince(cache.at) < 6 * 3600, Set(sortedHashes).isSubset(of: Set(cache.hashes)) {
+            return cache.matches.compactMap { m in
+                guard let hash = m["hash"], let uid = m["uid"] else { return nil }
+                return CloudSync.ContactMatch(hash: hash, uid: uid, code: m["code"] ?? "", name: m["name"] ?? "", handle: m["handle"] ?? "")
+            }
+        }
+        guard let result = await CloudSync.shared.matchContacts(hashes: sortedHashes) else { return nil }
+        let cache = MatchCache(at: Date(), hashes: sortedHashes,
+                               matches: result.map { ["hash": $0.hash, "uid": $0.uid, "code": $0.code, "name": $0.name, "handle": $0.handle] })
+        if let data = try? JSONEncoder().encode(cache) { UserDefaults.standard.set(data, forKey: Self.cacheKey) }
+        return result
     }
 
     func requestAccess() {

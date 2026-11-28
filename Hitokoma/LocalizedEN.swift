@@ -401,6 +401,8 @@ extension L10n {
         ("まだ Difframe を使っていません", "Not on Difframe yet"),
         ("連絡先の中で Difframe を使っている人を見つけたり、まだの人を招待したりできます。連絡先の名前は送りません。", "Find contacts who use Difframe and invite the ones who don't. Contact names are never sent."),
         ("もっと見る", "Show more"),
+        ("すでにアカウントがある人はログイン", "Already have an account? Log in"),
+        ("前に使っていたアカウントの電話番号で、確認コードを受け取ると、名前とIDを元に戻して入れます。", "Verify the phone number of your previous account to get your name and ID back."),
         ("南北アメリカ", "The Americas"),
         ("アメリカ", "United States"),
         ("アラビア語", "Arabic"),

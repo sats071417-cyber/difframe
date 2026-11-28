@@ -117,11 +117,11 @@ PRIVACY_APP = (PLIST_HEAD +
         "\t\t\t<key>NSPrivacyCollectedDataTypeTracking</key>\n\t\t\t<false/>\n"
         "\t\t\t<key>NSPrivacyCollectedDataTypePurposes</key>\n\t\t\t<array>\n\t\t\t\t<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>\n\t\t\t</array>\n"
         "\t\t</dict>\n"
-        for t in ["NSPrivacyCollectedDataTypeName", "NSPrivacyCollectedDataTypeEmailAddress",
-                  "NSPrivacyCollectedDataTypePhoneNumber", "NSPrivacyCollectedDataTypePreciseLocation",
+        # App Store Connect の「App のプライバシー」と同じ8種類（メールアドレス・正確な位置・連絡先は集めない）
+        for t in ["NSPrivacyCollectedDataTypeName", "NSPrivacyCollectedDataTypePhoneNumber",
                   "NSPrivacyCollectedDataTypeCoarseLocation", "NSPrivacyCollectedDataTypePhotosorVideos",
-                  "NSPrivacyCollectedDataTypeAudioData", "NSPrivacyCollectedDataTypeUserID",
-                  "NSPrivacyCollectedDataTypeOtherUserContent", "NSPrivacyCollectedDataTypeContacts"])
+                  "NSPrivacyCollectedDataTypeAudioData", "NSPrivacyCollectedDataTypeEmailsOrTextMessages",
+                  "NSPrivacyCollectedDataTypeUserID", "NSPrivacyCollectedDataTypeOtherUserContent"])
     + "\t</array>\n"
     "\t<key>NSPrivacyAccessedAPITypes</key>\n\t<array>\n"
     "\t\t<dict>\n\t\t\t<key>NSPrivacyAccessedAPIType</key>\n\t\t\t<string>NSPrivacyAccessedAPICategoryUserDefaults</string>\n"
@@ -355,7 +355,7 @@ def main() -> None:
     else:
         sim = '"CODE_SIGNING_REQUIRED[sdk=iphonesimulator*]" = NO; "CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]" = NO; '
     team_setting = f"DEVELOPMENT_TEAM = {team}; " if team else ""
-    common = ("CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; GENERATE_INFOPLIST_FILE = YES; "
+    common = ("CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 3; GENERATE_INFOPLIST_FILE = YES; "
               "IPHONEOS_DEPLOYMENT_TARGET = 17.0; MARKETING_VERSION = 1.0; SUPPORTED_PLATFORMS = \"iphoneos iphonesimulator\"; "
               "SUPPORTS_MACCATALYST = NO; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = 1; ")
     app_settings = (common + team_setting + sim +

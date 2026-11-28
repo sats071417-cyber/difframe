@@ -116,7 +116,6 @@ struct ContactsView: View {
 
     private var list: some View {
         List {
-            foundSection
             Section(L("招待する")) {
                 if loading {
                     ProgressView().frame(maxWidth: .infinity)
@@ -271,7 +270,6 @@ struct ContactsView: View {
         }.value
         people = result
         loading = false
-        await findFriends()
     }
 }
 

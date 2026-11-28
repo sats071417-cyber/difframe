@@ -269,7 +269,10 @@ struct InboxSheet: View {
                 .trackSheetScroll($scrollY)
             }
             .coordinateSpace(name: "sheetScroll")
-            .refreshable { await cloud.refresh(force: true) }
+            .refreshable {
+                await cloud.refresh(force: true)
+                if tab == .requests { await ContactsDirectory.shared.load(force: true) }   // 引っぱると、連絡先も照合し直す
+            }
         }
         // 左へなぞると友達リクエスト、右へなぞると通知へ（左の端からのなぞりは、戻る）
         .simultaneousGesture(

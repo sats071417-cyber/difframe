@@ -536,9 +536,39 @@ struct HandleEditSheet: View {
     let current: String
     let onSave: (String) -> Void
     @State private var text = ""
+    @State private var saving = false
+    @State private var serverError: String? = nil
 
     private var normalized: String { HandleRule.normalize(text) }
     private var errorMessage: String? { HandleRule.error(for: normalized) }
+
+    /// 新しいIDをサーバーに登録してから保存する（ほかの人が使っていたら、保存しない）。前のIDは手放す
+    private func save() {
+        let newID = normalized
+        let oldID = CloudSync.normalizeID(current)
+        guard newID != oldID else { dismiss(); return }
+        saving = true
+        serverError = nil
+        Task {
+            do {
+                if CloudSync.shared.isOn {
+                    try await CloudSync.shared.claimID(newID, code: FriendCode.myID)
+                    if !oldID.isEmpty, !oldID.hasPrefix("user_") { await CloudSync.shared.releaseID(oldID) }
+                    UserDefaults.standard.set(newID, forKey: "idClaimed")
+                }
+                onSave(newID)
+                if CloudSync.shared.isOn { try? await CloudSync.shared.publishProfile() }
+                saving = false
+                dismiss()
+            } catch IDError.taken {
+                saving = false
+                serverError = L("このIDは、もう使われています。別のIDにしてください。")
+            } catch {
+                saving = false
+                serverError = L("通信できませんでした。電話かWi-Fiを確かめて、もう一度押してください。")
+            }
+        }
+    }
 
     var body: some View {
         NavigationStack {
@@ -552,7 +582,9 @@ struct HandleEditSheet: View {
                             .keyboardType(.asciiCapable)
                     }
                 } footer: {
-                    if !text.isEmpty, let errorMessage {
+                    if let serverError {
+                        Text(serverError).foregroundStyle(.red)
+                    } else if !text.isEmpty, let errorMessage {
                         Text(errorMessage).foregroundStyle(.red)
                     } else {
                         Text(L("英小文字・数字・ピリオド(.)・アンダースコア(_)で、3〜20文字。"))
@@ -566,11 +598,8 @@ struct HandleEditSheet: View {
                     Button(L("キャンセル")) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(L("保存")) {
-                        onSave(normalized)
-                        dismiss()
-                    }
-                    .disabled(errorMessage != nil)
+                    Button(L("保存")) { save() }
+                        .disabled(errorMessage != nil || saving)
                 }
             }
             .onAppear { text = current }
