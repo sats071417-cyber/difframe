@@ -132,6 +132,22 @@ final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
                                 didReceive response: UNNotificationResponse,
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
         recordArrival(response.notification)
+        // 連絡先の友達が始めた通知：ボタンなら、その場で友達申請を送る。タップなら、タイムラインを開く
+        let joined = response.notification.request.content.userInfo
+        if joined["contactJoined"] != nil {
+            let action = response.actionIdentifier
+            Task { @MainActor in
+                if action == ContactsMatcher.addAction, let uid = joined["uid"] as? String {
+                    let profile = CloudProfile(uid: uid, code: joined["code"] as? String ?? "", name: joined["name"] as? String ?? "",
+                                               handle: joined["handle"] as? String ?? "", rank: nil, streak: nil)
+                    if (try? await CloudSync.shared.sendRequest(to: profile)) != nil { ContactsMatcher.dismiss(uid) }
+                } else {
+                    PushRouter.shared.route = .timeline
+                }
+                completionHandler()
+            }
+            return
+        }
         if response.notification.request.identifier == "pickup" {
             Task { @MainActor in PushRouter.shared.route = .pickup }
             completionHandler()

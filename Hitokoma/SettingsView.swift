@@ -12,6 +12,7 @@ struct SettingsView: View {
     @AppStorage("mute.friendAccepted") private var muteAccepted = false
     @AppStorage("mute.friendPost") private var mutePost = false
     @AppStorage("mute.rankUp") private var muteRankUp = false
+    @AppStorage("mute.contactJoined") private var muteContactJoined = false
     @AppStorage("mute.message") private var muteMessage = false
     // 撮影
     @AppStorage("dualCamera") private var dualCamera = true
@@ -27,6 +28,7 @@ struct SettingsView: View {
     @State private var changingPhone = false
     @State private var confirmDelete = false
     @State private var confirmSignOut = false
+    @State private var showContactsFinder = false
     @State private var signingOut = false
     @AppStorage(Account.verifiedKey) private var phoneVerified = false
     @State private var deleting = false
@@ -100,6 +102,8 @@ struct SettingsView: View {
                         .tint(Hi.neon)
                         .disabled(!phoneVerified || phone.isEmpty)
                         .onChange(of: discoverable) { _, _ in Task { await CloudSync.shared.syncPhoneDiscovery(force: true) } }
+                    Button(L("連絡先から友達を探す")) { showContactsFinder = true }
+                        .disabled(!phoneVerified || phone.isEmpty)
                     Button { confirmSignOut = true } label: {
                         if signingOut { ProgressView() } else { Text(L("ログアウト")) }
                     }
@@ -182,6 +186,7 @@ struct SettingsView: View {
                     Toggle(L("友達になったお知らせ"), isOn: Binding(get: { !muteAccepted }, set: { muteAccepted = !$0 }))
                     Toggle(L("友達の投稿"), isOn: Binding(get: { !mutePost }, set: { mutePost = !$0 }))
                     Toggle(L("友達のランクアップ"), isOn: Binding(get: { !muteRankUp }, set: { muteRankUp = !$0 }))
+                    Toggle(L("連絡先の友達が始めたとき"), isOn: Binding(get: { !muteContactJoined }, set: { muteContactJoined = !$0 }))
                     Toggle(L("DM"), isOn: Binding(get: { !muteMessage }, set: { muteMessage = !$0 }))
                 } header: {
                     Text(L("通知の種類"))
@@ -261,6 +266,9 @@ struct SettingsView: View {
                 Text(deleteResult == .needsRecentLogin
                      ? L("安全のため、電話番号をもう一度確認してください。「電話番号を変える」で確認したあと、もう一度削除してください。")
                      : L("通信を確かめて、もう一度試してください。"))
+            }
+            .fullScreenCover(isPresented: $showContactsFinder) {
+                ContactsOnboardingView(fromSettings: true) { showContactsFinder = false }
             }
             .fullScreenCover(isPresented: $changingPhone) {
                 SignUpView(onFinish: { changingPhone = false }, phoneOnly: true)

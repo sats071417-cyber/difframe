@@ -4,6 +4,7 @@ import SwiftUI
 enum PushRoute: Equatable {
     case notices
     case pickup
+    case timeline
     case post(id: String, name: String)
     case chat(CloudFriend)
 }

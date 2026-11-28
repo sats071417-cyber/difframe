@@ -59,14 +59,20 @@ struct ContactsView: View {
                     denied
                 }
             }
-            .navigationTitle(L("連絡先から友達を探す"))
+            .navigationTitle(L("連絡先の人を招待"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(L("閉じる")) { dismiss() }
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { dismiss() } label: {
+                        Image(systemName: "chevron.left").font(.system(size: 16, weight: .black)).foregroundStyle(.white)
+                    }
+                    .accessibilityLabel(L("戻る"))
                 }
             }
         }
+        .background(Color.black.ignoresSafeArea())
+        .preferredColorScheme(.dark)
+        .tint(Hi.neon)
         .task {
             if hasAccess { await load() }
         }
@@ -146,6 +152,8 @@ struct ContactsView: View {
             }
         }
         .searchable(text: $query, prompt: L("名前や番号で探す"))
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
     }
 
     /// Difframe を使っている友達（いちばん上）

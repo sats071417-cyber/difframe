@@ -40,6 +40,10 @@ struct TimelineScreen: View {
                       selection: $section)
                 .padding(.horizontal, 16)
 
+            // 連絡先の友達が新しく始めたら、ここに出す（申請・閉じる）
+            NewContactFriendsBanner()
+                .padding(.horizontal, 16)
+
             ZStack {
                 FriendsView(onCapture: onCapture, embedded: true, showAdd: $showAdd)
                     .opacity(section == .friends ? 1 : 0)

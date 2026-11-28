@@ -24,7 +24,7 @@ import sys
 APP = "Hitokoma"
 WIDGET = "HitokomaWidget"
 
-APP_SOURCES = ["HitokomaApp.swift", "ContentView.swift", "TodayView.swift", "CloudIDs.swift",
+APP_SOURCES = ["HitokomaApp.swift", "ContentView.swift", "TodayView.swift", "CloudIDs.swift", "ContactsOnboarding.swift",
                "FriendsView.swift", "WorldMapView.swift",
                "PostStore.swift", "CalendarView.swift", "NotificationScheduler.swift",
                "FriendCode.swift", "PromptArt.swift", "PromptVerifier.swift", "ProfileView.swift",

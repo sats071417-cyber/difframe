@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         // Firebase は、アプリ本体（UIApplication）ができたあとに設定する。早すぎると、電話認証の部品が作られない
         FirebaseBoot.configure()
+        ContactsMatcher.registerNotificationActions()   // 「友達申請を送る」ボタンつきの通知
         // 電話番号のSMS認証は、Apple の無音の通知で端末を確かめる。無音の通知は、通知の許可がなくても受け取れるので、
         // 許可を聞く前（はじめの登録画面）でも、通知の宛先をもらっておく
         application.registerForRemoteNotifications()

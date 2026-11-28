@@ -23,6 +23,8 @@ struct ContentView: View {
     @AppStorage("onboarded") private var onboarded = false   // 初回の説明を見たか
     @AppStorage("myName") private var profileName: String = ""
     @AppStorage("myHandle") private var profileHandle: String = ""
+    @AppStorage(Account.verifiedKey) private var phoneVerified = false
+    @AppStorage("contactsStepDone") private var contactsStepDone = false   // 電話番号の登録のあとの、連絡先から友達を探す画面を見たか
     /// 名前とIDが決まっているか（決まるまで、ほかの画面に進めない）
     private var profileReady: Bool { !profileName.trimmingCharacters(in: .whitespaces).isEmpty && !profileHandle.isEmpty }
     @AppStorage(Account.doneKey) private var signUpDone = false   // 電話番号の登録画面を終えたか（「あとで」も含む）
@@ -66,6 +68,10 @@ struct ContentView: View {
         }
         .fullScreenCover(isPresented: Binding(get: { onboarded && signUpDone && !profileReady }, set: { _ in })) {
             RequiredProfileView()
+        }
+        // 電話番号を確認した人には、1回だけ、連絡先から友達を探して申請する画面を出す
+        .fullScreenCover(isPresented: Binding(get: { onboarded && signUpDone && profileReady && phoneVerified && !contactsStepDone }, set: { _ in })) {
+            ContactsOnboardingView { contactsStepDone = true }
         }
         .fullScreenCover(isPresented: Binding(get: { !onboarded || !signUpDone }, set: { _ in })) {
             if !onboarded {
@@ -243,6 +249,7 @@ struct ContentView: View {
         Task {
             await CloudSync.shared.refresh()
             await CloudSync.shared.syncPhoneDiscovery()
+            await ContactsMatcher.checkForNewJoiners()   // 連絡先の友達が新しく始めていたら、タイムラインに出す
         }
         store.ensureToday()
         // ウィジェットの言語とお題の文字を、いまの言語に合わせ直す（言語を変えた直後も含む）
@@ -266,6 +273,8 @@ extension ContentView {
             showNotices = true
         case .pickup:
             showPickup = true
+        case .timeline:
+            selection = .friends   // 連絡先の友達が始めた通知：タイムラインの上に、申請の案内が出ている
         case .chat(let friend):
             pushChat = friend
         case .post(let postID, let name):

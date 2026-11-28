@@ -44,6 +44,8 @@ enum BackgroundSync {
                 try? await UNUserNotificationCenter.current().add(
                     UNNotificationRequest(identifier: "bg-" + notice.id, content: content, trigger: nil))
             }
+            // 連絡先の友達が新しく始めていたら、知らせる（友達申請は、通知のボタンからも送れる）
+            await ContactsMatcher.notify(await ContactsMatcher.checkForNewJoiners())
             task.setTaskCompleted(success: true)
         }
         task.expirationHandler = { work.cancel() }

@@ -5,100 +5,61 @@ struct AddFriendSheet: View {
     @Binding var isPresented: Bool
     @ObservedObject private var cloud = CloudSync.shared
     @AppStorage("friendList") private var friendList: String = MyProfile.defaultFriends
+    @AppStorage(Account.verifiedKey) private var phoneVerified = false
     @State private var newFriend = ""
     @State private var showScanner = false
     @State private var showContacts = false
+    @State private var showInviteList = false
     @State private var message: String? = nil
     @State private var viewing: CodeTarget? = nil
+
+    /// IDで探すか、電話番号で探すか
+    private enum SearchMode: Hashable { case id, phone }
+    @State private var mode: SearchMode = .id
+    @State private var country = AddFriendSheet.defaultCountry()
+    @State private var number = ""
+    @State private var phoneResult: PhoneResult = .none
+    private enum PhoneResult { case none, searching, found(CloudSync.ContactMatch), notFound, failed }
 
     private var friends: [String] {
         friendList.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
     }
 
+    /// 自分の番号の国を、はじめから選んでおく
+    private static func defaultCountry() -> Country {
+        let own = UserDefaults.standard.string(forKey: Account.phoneKey) ?? ""
+        let dial = PhoneNumbers.defaultCallingCode(own: own)
+        let region = Locale.current.region?.identifier ?? ""
+        return Country.all.first { $0.dial == dial && $0.region == region } ?? Country.all.first { $0.dial == dial } ?? Country.current
+    }
+
     var body: some View {
         NavigationStack {
-            List {
-                Section(L("友達を追加")) {
-                    Button {
-                        showScanner = true
-                    } label: {
-                        Label(L("相手のQRコードを読み取る"), systemImage: "qrcode.viewfinder")
-                    }
-                    Button {
-                        showContacts = true
-                    } label: {
-                        Label(L("連絡先から友達を探す"), systemImage: "person.crop.circle.badge.plus")
-                    }
-                    HStack {
-                        Image(systemName: "at").foregroundStyle(.secondary)
-                        TextField(L("相手のIDを入力"), text: $newFriend)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                            .submitLabel(.search)
-                            .onSubmit { open(from: newFriend) }
-                        if !newFriend.isEmpty {
-                            Button(L("探す")) { open(from: newFriend) }
-                                .buttonStyle(.borderless)
-                        }
-                    }
-                    Text(L("友達追加は、連絡先、相手のQRコード、相手のID、相手から受け取ったリンクからできます。"))
-                        .font(.caption).foregroundStyle(.secondary)
-                    if let message {
-                        Text(message).font(.caption).foregroundStyle(.secondary)
-                    }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    NewContactFriendsBanner()
+                    searchCard
+                    waysCard
+                    myCodeCard
+                    if cloud.isOn { friendsCard }
                 }
-
-                Section(L("自分のコード（相手に見せる）")) {
-                    VStack(spacing: 12) {
-                        if let qr = FriendCode.qrImage(for: FriendCode.shareURL) {
-                            Image(uiImage: qr)
-                                .interpolation(.none)
-                                .resizable()
-                                .frame(width: 180, height: 180)
-                        }
-                        Text(FriendCode.myID)
-                            .font(.system(.body, design: .monospaced))
-                            .textSelection(.enabled)
-                        ShareLink(item: FriendCode.shareURL) {
-                            Label(L("リンクを送る（LINEなど）"), systemImage: "square.and.arrow.up")
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 4)
-                }
-
-                if cloud.isOn {
-                    Section(L("いまの友達")) {
-                        if cloud.friends.isEmpty {
-                            Text(L("まだ友達がいません")).foregroundStyle(.secondary)
-                        }
-                        ForEach(cloud.friends) { friend in
-                            Text(friend.name.isEmpty ? friend.code : friend.name)
-                        }
-                        .onDelete { offsets in
-                            let ids = offsets.map { cloud.friends[$0].uid }
-                            Task { for id in ids { await cloud.removeFriend(uid: id) } }
-                        }
-                    }
-                } else {
-                Section(L("いまの友達")) {
-                    if friends.isEmpty {
-                        Text(L("まだ友達がいません")).foregroundStyle(.secondary)
-                    }
-                    ForEach(friends, id: \.self) { name in
-                        Text(name)
-                    }
-                    .onDelete(perform: removeFriends)
-                }
-                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 40)
             }
+            .scrollDismissesKeyboard(.interactively)
+            .background(Color.black.ignoresSafeArea())
             .navigationTitle(L("友達を追加"))
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(L("閉じる")) { isPresented = false }
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { isPresented = false } label: {
+                        Image(systemName: "chevron.left").font(.system(size: 16, weight: .black)).foregroundStyle(.white)
+                    }
+                    .accessibilityLabel(L("戻る"))
                 }
             }
-            .fullScreenCover(isPresented: $showContacts) { ContactsView() }
+            .fullScreenCover(isPresented: $showContacts) { ContactsOnboardingView(fromSettings: true) { showContacts = false } }
+            .fullScreenCover(isPresented: $showInviteList) { ContactsView() }
             .fullScreenCover(isPresented: $showScanner) {
                 ZStack(alignment: .topLeading) {
                     QRScannerView { value in
@@ -119,8 +80,223 @@ struct AddFriendSheet: View {
                 PersonProfileSheet(code: target.id, canAdd: true)
             }
         }
+        .preferredColorScheme(.dark)
     }
 
+    // MARK: 探す（IDか電話番号）
+
+    private var searchCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(L("友達を探す")).font(.headline.weight(.black)).foregroundStyle(.white)
+            HiSegment(options: [(value: SearchMode.id, title: L("ID")), (value: SearchMode.phone, title: L("電話番号"))], selection: $mode)
+            if mode == .id {
+                HStack(spacing: 8) {
+                    HStack(spacing: 4) {
+                        Text("@").font(.body.weight(.bold)).foregroundStyle(Hi.dim)
+                        TextField(L("相手のIDを入力"), text: $newFriend)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .submitLabel(.search)
+                            .onSubmit { open(from: newFriend) }
+                    }
+                    .padding(.horizontal, 14)
+                    .frame(height: 50)
+                    .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.black))
+                    searchButton(enabled: !newFriend.trimmingCharacters(in: .whitespaces).isEmpty) { open(from: newFriend) }
+                }
+                if let message {
+                    Text(message).font(.caption).foregroundStyle(Hi.dim)
+                }
+            } else {
+                HStack(spacing: 8) {
+                    Menu {
+                        Picker(L("国"), selection: $country) {
+                            ForEach(Country.all) { c in Text("\(c.flag) \(c.name) +\(c.dial)").tag(c) }
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text(country.flag)
+                            Text("+\(country.dial)").font(.subheadline.weight(.bold)).foregroundStyle(.white)
+                        }
+                        .padding(.horizontal, 12)
+                        .frame(height: 50)
+                        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.black))
+                    }
+                    .accessibilityLabel(LF("国番号 {c}", ["c": country.name]))
+                    TextField(L("電話番号"), text: $number)
+                        .keyboardType(.phonePad)
+                        .padding(.horizontal, 14)
+                        .frame(height: 50)
+                        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.black))
+                        .onChange(of: number) { _, _ in phoneResult = .none }
+                    searchButton(enabled: phoneVerified && number.filter(\.isNumber).count >= 6) { searchPhone() }
+                }
+                phoneResultView
+            }
+        }
+        .padding(16)
+        .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Hi.tile))
+    }
+
+    private func searchButton(enabled: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(L("探す")).font(.subheadline.weight(.black))
+                .padding(.horizontal, 16)
+                .frame(height: 50)
+                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(enabled ? Hi.neon : Hi.dim.opacity(0.3)))
+                .foregroundStyle(enabled ? Hi.onNeon : Hi.dim)
+        }
+        .disabled(!enabled)
+    }
+
+    @ViewBuilder private var phoneResultView: some View {
+        if !phoneVerified {
+            Text(L("電話番号で探すには、先に自分の電話番号を登録してください（設定 →「電話番号を登録」）。"))
+                .font(.caption).foregroundStyle(Hi.dim)
+        }
+        switch phoneResult {
+        case .none:
+            Text(L("相手が「連絡先から見つけてもらう」をオンにしていると見つかります。番号は、元に戻せない形に変えてから照合します。"))
+                .font(.caption).foregroundStyle(Hi.dim)
+        case .searching:
+            ProgressView().tint(.white).frame(maxWidth: .infinity)
+        case .found(let m):
+            HStack(spacing: 12) {
+                Circle().fill(Hi.neon.opacity(0.25)).frame(width: 44, height: 44)
+                    .overlay(Text(String((m.name.isEmpty ? m.handle : m.name).prefix(1))).font(.headline.weight(.bold)).foregroundStyle(.white))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(m.name.isEmpty ? m.handle : m.name).font(.body.weight(.bold)).foregroundStyle(.white)
+                    if !m.handle.isEmpty { Text("@" + m.handle).font(.caption).foregroundStyle(Hi.dim) }
+                }
+                Spacer()
+                if cloud.friends.contains(where: { $0.uid == m.uid }) {
+                    Text(L("友達")).font(.caption.weight(.bold)).foregroundStyle(Hi.dim)
+                } else if cloud.sentRequests.contains(m.uid) {
+                    Text(L("申請済み")).font(.caption.weight(.bold)).foregroundStyle(Hi.dim)
+                } else {
+                    Button(L("申請")) {
+                        Task {
+                            let profile = CloudProfile(uid: m.uid, code: m.code, name: m.name, handle: m.handle, rank: nil, streak: nil)
+                            try? await cloud.sendRequest(to: profile)
+                        }
+                    }
+                    .font(.caption.weight(.black))
+                    .padding(.horizontal, 14).padding(.vertical, 8)
+                    .background(Capsule().fill(Hi.neon))
+                    .foregroundStyle(Hi.onNeon)
+                }
+            }
+            .padding(12)
+            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.black))
+        case .notFound:
+            VStack(alignment: .leading, spacing: 8) {
+                Text(L("見つかりませんでした。まだ使っていないか、見つけてもらう設定をオフにしているかもしれません。"))
+                    .font(.caption).foregroundStyle(Hi.dim)
+                ShareLink(item: FriendCode.shareURL, message: Text(L("Difframeで同じお題を撮ろう。このリンクから友達になれるよ。"))) {
+                    Label(L("招待リンクを送る"), systemImage: "square.and.arrow.up").font(.caption.weight(.bold))
+                }
+                .foregroundStyle(Hi.neon)
+            }
+        case .failed:
+            Text(L("探せませんでした。通信を確かめて、もう一度試してください。")).font(.caption).foregroundStyle(Hi.dim)
+        }
+    }
+
+    private func searchPhone() {
+        guard let e164 = PhoneNumbers.e164(number, defaultCode: country.dial) else { phoneResult = .notFound; return }
+        phoneResult = .searching
+        Task {
+            guard let result = await cloud.matchContacts(hashes: [PhoneNumbers.hash(e164)]) else { phoneResult = .failed; return }
+            if let m = result.first(where: { $0.uid != cloud.uid }) { phoneResult = .found(m) } else { phoneResult = .notFound }
+        }
+    }
+
+    // MARK: そのほかの追加のしかた
+
+    private var waysCard: some View {
+        VStack(spacing: 0) {
+            wayRow(L("連絡先から探す"), icon: "person.2.fill") { showContacts = true }
+            divider
+            wayRow(L("相手のQRコードを読み取る"), icon: "qrcode.viewfinder") { showScanner = true }
+            divider
+            wayRow(L("連絡先の人を招待"), icon: "envelope.fill") { showInviteList = true }
+        }
+        .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Hi.tile))
+    }
+
+    private var divider: some View { Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1).padding(.leading, 56) }
+
+    private func wayRow(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                Image(systemName: icon).font(.body.weight(.bold)).foregroundStyle(Hi.neon).frame(width: 26)
+                Text(title).font(.body.weight(.bold)).foregroundStyle(.white)
+                Spacer()
+                Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(Hi.dim)
+            }
+            .padding(.horizontal, 16)
+            .frame(height: 56)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: 自分のコード
+
+    private var myCodeCard: some View {
+        VStack(spacing: 12) {
+            Text(L("自分のコード（相手に見せる）")).font(.headline.weight(.black)).foregroundStyle(.white)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            if let qr = FriendCode.qrImage(for: FriendCode.shareURL) {
+                Image(uiImage: qr)
+                    .interpolation(.none)
+                    .resizable()
+                    .frame(width: 180, height: 180)
+                    .padding(12)
+                    .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.white))
+            }
+            Text(FriendCode.myID)
+                .font(.system(.body, design: .monospaced).weight(.bold))
+                .foregroundStyle(.white)
+                .textSelection(.enabled)
+            ShareLink(item: FriendCode.shareURL) {
+                Label(L("リンクを送る（LINEなど）"), systemImage: "square.and.arrow.up")
+            }
+            .buttonStyle(NeonButtonStyle())
+        }
+        .padding(16)
+        .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Hi.tile))
+    }
+
+    // MARK: いまの友達
+
+    private var friendsCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(LF("いまの友達（{n}人）", ["n": "\(cloud.friends.count)"])).font(.headline.weight(.black)).foregroundStyle(.white)
+            if cloud.friends.isEmpty {
+                Text(L("まだ友達がいません")).font(.subheadline).foregroundStyle(Hi.dim)
+            }
+            ForEach(cloud.friends) { friend in
+                HStack(spacing: 12) {
+                    Circle().fill(Color.white.opacity(0.12)).frame(width: 36, height: 36)
+                        .overlay(Text(String((friend.name.isEmpty ? friend.code : friend.name).prefix(1))).font(.subheadline.weight(.bold)).foregroundStyle(.white))
+                    Text(friend.name.isEmpty ? friend.code : friend.name).font(.body.weight(.bold)).foregroundStyle(.white)
+                    Spacer()
+                }
+                .contextMenu {
+                    Button(role: .destructive) {
+                        Task { await cloud.removeFriend(uid: friend.uid) }
+                    } label: { Label(L("友達から外す"), systemImage: "person.badge.minus") }
+                }
+            }
+            if !cloud.friends.isEmpty {
+                Text(L("長押しで、友達から外せます。")).font(.caption).foregroundStyle(Hi.dim)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Hi.tile))
+    }
 
     /// 読み取った（貼った）コードの人のプロフィールを開く。追加は、そこから行う
     private func open(from text: String, delay: Double = 0) {
